@@ -449,6 +449,18 @@
             }
             return gameState.deck.pop();
         }
+        
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
 
         // Calcular total de mano considerando ases
         function calculateHandTotal(cards) {
@@ -492,6 +504,9 @@
             updateGameStatus('Juego iniciado. Haz una apuesta para comenzar.', '');
         }
 
+        // CÓDIGO CORREGIDO - Eliminar la redefinición problemática al final
+
+        // Función newHand corregida (versión única)
         function newHand() {
             const betAmount = parseInt(document.getElementById('betAmount').value);
             
@@ -536,6 +551,12 @@
                 updateGameStatus('¡Blackjack! Evaluando...', 'win');
             } else {
                 updateGameStatus('Tu turno. ¿Hit o Stand?', '');
+                // Auto-análisis después de repartir cartas
+                setTimeout(() => {
+                    if (gameState.handInProgress && gameState.playerTotal < 21) {
+                        getRecommendation();
+                    }
+                }, 1000);
             }
         }
 
@@ -878,14 +899,20 @@
             document.getElementById('winRate').textContent = 
                 gameState.stats.handsPlayed > 0 ? 
                 ((gameState.stats.wins / gameState.stats.handsPlayed) * 100).toFixed(1) + '%' : '0%';
-            document.getElementById('totalProfit').textContent = ' + gameState.stats.totalProfit;
+            
+            // CORRECCIÓN: Agregar el símbolo de dólar correctamente
+            const profit = gameState.stats.totalProfit;
+            const profitText = profit >= 0 ? `+${profit}` : `-${Math.abs(profit)}`;
+            document.getElementById('totalProfit').textContent = profitText;
         }
 
         function updateProbabilityChart(data) {
             const ctx = document.getElementById('probabilityChart').getContext('2d');
             
+            // Destruir gráfico anterior de forma más eficiente
             if (chart) {
                 chart.destroy();
+                chart = null;
             }
             
             const chartData = {
@@ -893,10 +920,10 @@
                 datasets: [{
                     label: 'Probabilidad de Éxito',
                     data: [
-                        data.newton_raphson,
-                        data.interpolation,
-                        data.integration,
-                        data.monte_carlo
+                        data.newton_raphson || 0,
+                        data.interpolation || 0,
+                        data.integration || 0,
+                        data.monte_carlo || 0
                     ],
                     backgroundColor: [
                         'rgba(34, 197, 94, 0.8)',
@@ -957,9 +984,14 @@
                             }
                         }
                     },
+                    // Reducir animación para mejorar rendimiento
                     animation: {
-                        duration: 1000,
+                        duration: 500,
                         easing: 'easeInOutQuart'
+                    },
+                    // Desactivar interacciones innecesarias
+                    interaction: {
+                        intersect: false
                     }
                 }
             });
@@ -1244,6 +1276,7 @@
 
         // Modificar la función getRecommendation para usar el sistema avanzado
         function getRecommendation() {
+                    const getRecommendationDebounced = debounce(function() {
             const analysis = advancedRecommendationSystem();
             
             const recDiv = document.getElementById('recommendation');
@@ -1262,6 +1295,7 @@
             document.getElementById('monteCarloResult').textContent = analysis.methods.monte_carlo.toFixed(4);
 
             updateProbabilityChart(analysis.methods);
+        }, 300); // Esperar 300ms entre llamadas
         }
 
         // Inicialización mejorada
