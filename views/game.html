@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blackjack + Métodos Numéricos</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -70,7 +69,7 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
             font-weight: bold;
             font-size: 12px;
-            transition: transform 0.3s;
+            transition: transform 0.2s ease;
         }
 
         .card:hover {
@@ -108,14 +107,13 @@
             color: white;
             font-weight: bold;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.2s ease;
             font-size: 14px;
         }
 
         button:hover:not(:disabled) {
             background: #047857;
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4);
         }
 
         button:disabled {
@@ -144,7 +142,7 @@
             border-radius: 10px;
             padding: 15px;
             margin: 15px 0;
-            transition: all 0.3s;
+            transition: all 0.2s ease;
         }
 
         .recommendation.hit {
@@ -176,12 +174,63 @@
             border-radius: 3px;
         }
 
-        #probabilityChart {
+        /* Reemplazar Chart.js con barras CSS */
+        .probability-chart {
             margin-top: 20px;
             background: rgba(255,255,255,0.1);
             border-radius: 10px;
-            padding: 10px;
+            padding: 15px;
         }
+
+        .chart-title {
+            text-align: center;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .chart-bar {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+
+        .chart-label {
+            width: 100px;
+            font-size: 10px;
+            text-align: right;
+            margin-right: 10px;
+        }
+
+        .chart-bar-container {
+            flex: 1;
+            height: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .chart-bar-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+
+        .chart-value {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 10px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .newton-bar { background: linear-gradient(90deg, #22c55e, #16a34a); }
+        .interpolation-bar { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+        .integration-bar { background: linear-gradient(90deg, #f59e0b, #d97706); }
+        .monte-carlo-bar { background: linear-gradient(90deg, #a855f7, #9333ea); }
 
         .bet-input {
             margin: 15px 0;
@@ -229,7 +278,7 @@
         }
 
         .animation {
-            animation: fadeInScale 0.5s ease-out;
+            animation: fadeInScale 0.3s ease-out;
         }
 
         @keyframes fadeInScale {
@@ -266,6 +315,22 @@
             border: 2px solid #9ca3af;
         }
 
+        /* Indicador de rendimiento */
+        .performance-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            background: rgba(0,0,0,0.7);
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+
+        .performance-good { color: #22c55e; }
+        .performance-warning { color: #f59e0b; }
+        .performance-poor { color: #ef4444; }
+
         @media (max-width: 768px) {
             .game-area {
                 grid-template-columns: 1fr;
@@ -280,10 +345,20 @@
                 height: 75px;
                 font-size: 10px;
             }
+
+            .chart-label {
+                width: 80px;
+                font-size: 9px;
+            }
         }
     </style>
 </head>
 <body>
+    <!-- Indicador de rendimiento -->
+    <div class="performance-indicator" id="performanceIndicator">
+        <span id="fpsCounter">FPS: --</span>
+    </div>
+
     <div class="container">
         <div class="header">
             <h1>🃏 Blackjack + Métodos Numéricos</h1>
@@ -371,12 +446,95 @@
                     </div>
                 </div>
 
-                <canvas id="probabilityChart" width="300" height="200"></canvas>
+                <!-- Gráfico CSS en lugar de Chart.js -->
+                <div class="probability-chart">
+                    <div class="chart-title">Análisis Comparativo</div>
+                    
+                    <div class="chart-bar">
+                        <div class="chart-label">Newton-Raphson</div>
+                        <div class="chart-bar-container">
+                            <div class="chart-bar-fill newton-bar" id="newtonBar" style="width: 0%">
+                                <div class="chart-value" id="newtonValue">0%</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-bar">
+                        <div class="chart-label">Interpolación</div>
+                        <div class="chart-bar-container">
+                            <div class="chart-bar-fill interpolation-bar" id="interpolationBar" style="width: 0%">
+                                <div class="chart-value" id="interpolationValue">0%</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-bar">
+                        <div class="chart-label">Integración</div>
+                        <div class="chart-bar-container">
+                            <div class="chart-bar-fill integration-bar" id="integrationBar" style="width: 0%">
+                                <div class="chart-value" id="integrationValue">0%</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-bar">
+                        <div class="chart-label">Monte Carlo</div>
+                        <div class="chart-bar-container">
+                            <div class="chart-bar-fill monte-carlo-bar" id="monteCarloBar" style="width: 0%">
+                                <div class="chart-value" id="monteCarloValue">0%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        // Sistema de monitoreo de rendimiento
+        class PerformanceMonitor {
+            constructor() {
+                this.frameCount = 0;
+                this.lastTime = performance.now();
+                this.fps = 0;
+                this.startMonitoring();
+            }
+
+            startMonitoring() {
+                const monitor = () => {
+                    this.frameCount++;
+                    const currentTime = performance.now();
+                    
+                    if (currentTime >= this.lastTime + 1000) {
+                        this.fps = Math.round((this.frameCount * 1000) / (currentTime - this.lastTime));
+                        this.updateFPSDisplay();
+                        this.frameCount = 0;
+                        this.lastTime = currentTime;
+                    }
+                    
+                    requestAnimationFrame(monitor);
+                };
+                requestAnimationFrame(monitor);
+            }
+
+            updateFPSDisplay() {
+                const indicator = document.getElementById('fpsCounter');
+                const performanceDiv = document.getElementById('performanceIndicator');
+                
+                indicator.textContent = `FPS: ${this.fps}`;
+                
+                // Cambiar color según rendimiento
+                performanceDiv.className = 'performance-indicator ';
+                if (this.fps >= 55) {
+                    performanceDiv.className += 'performance-good';
+                } else if (this.fps >= 30) {
+                    performanceDiv.className += 'performance-warning';
+                } else {
+                    performanceDiv.className += 'performance-poor';
+                }
+            }
+        }
+
         // Estado del juego
         let gameState = {
             gameStarted: false,
@@ -397,7 +555,18 @@
             }
         };
 
-        let chart;
+        // Función debounce optimizada
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
 
         // Clase para manejo de cartas
         class Card {
@@ -432,7 +601,6 @@
                 }
             }
             
-            // Mezclar mazo
             shuffleDeck();
         }
 
@@ -449,18 +617,6 @@
             }
             return gameState.deck.pop();
         }
-        
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
-        }
 
         // Calcular total de mano considerando ases
         function calculateHandTotal(cards) {
@@ -476,7 +632,6 @@
                 }
             }
 
-            // Ajustar ases
             while (total > 21 && aces > 0) {
                 total -= 10;
                 aces--;
@@ -504,9 +659,6 @@
             updateGameStatus('Juego iniciado. Haz una apuesta para comenzar.', '');
         }
 
-        // CÓDIGO CORREGIDO - Eliminar la redefinición problemática al final
-
-        // Función newHand corregida (versión única)
         function newHand() {
             const betAmount = parseInt(document.getElementById('betAmount').value);
             
@@ -515,25 +667,22 @@
                 return;
             }
 
-            // Configurar nueva mano
             gameState.handInProgress = true;
             gameState.currentBet = betAmount;
             gameState.balance -= betAmount;
             gameState.playerCards = [];
             gameState.dealerCards = [];
 
-            // Repartir cartas iniciales
             gameState.playerCards.push(dealCard());
             gameState.dealerCards.push(dealCard());
             gameState.playerCards.push(dealCard());
             gameState.dealerCards.push(dealCard());
 
             gameState.playerTotal = calculateHandTotal(gameState.playerCards);
-            gameState.dealerTotal = gameState.dealerCards[0].getValue(); // Solo carta visible
+            gameState.dealerTotal = gameState.dealerCards[0].getValue();
 
-            // Actualizar UI
             displayCards('playerCards', gameState.playerCards);
-            displayCards('dealerCards', [gameState.dealerCards[0]]); // Solo primera carta
+            displayCards('dealerCards', [gameState.dealerCards[0]]);
             
             document.getElementById('newHandBtn').disabled = true;
             document.getElementById('hitBtn').disabled = false;
@@ -543,20 +692,18 @@
 
             updateDisplay();
             
-            // Verificar blackjack
             if (gameState.playerTotal === 21) {
                 setTimeout(() => {
-                    stand(); // Auto-stand en blackjack
+                    stand();
                 }, 1000);
                 updateGameStatus('¡Blackjack! Evaluando...', 'win');
             } else {
                 updateGameStatus('Tu turno. ¿Hit o Stand?', '');
-                // Auto-análisis después de repartir cartas
                 setTimeout(() => {
                     if (gameState.handInProgress && gameState.playerTotal < 21) {
                         getRecommendation();
                     }
-                }, 1000);
+                }, 800);
             }
         }
 
@@ -565,7 +712,6 @@
             gameState.playerCards.push(newCard);
             gameState.playerTotal = calculateHandTotal(gameState.playerCards);
 
-            // Animación de nueva carta
             const newCardElement = createCardElement(newCard);
             newCardElement.classList.add('animation');
             document.getElementById('playerCards').appendChild(newCardElement);
@@ -583,17 +729,14 @@
         }
 
         function stand() {
-            // Mostrar carta oculta del dealer
             displayCards('dealerCards', gameState.dealerCards);
             gameState.dealerTotal = calculateHandTotal(gameState.dealerCards);
 
-            // Dealer juega
             while (gameState.dealerTotal < 17) {
                 const newCard = dealCard();
                 gameState.dealerCards.push(newCard);
                 gameState.dealerTotal = calculateHandTotal(gameState.dealerCards);
                 
-                // Mostrar nuevas cartas del dealer
                 setTimeout(() => {
                     displayCards('dealerCards', gameState.dealerCards);
                     updateDisplay();
@@ -602,7 +745,7 @@
 
             setTimeout(() => {
                 evaluateHand();
-            }, 1000);
+            }, 800);
         }
 
         function doubleDown() {
@@ -614,10 +757,8 @@
             gameState.balance -= gameState.currentBet;
             gameState.currentBet *= 2;
 
-            // Hit obligatorio
             hit();
 
-            // Si no se pasó, hacer stand automático
             if (gameState.playerTotal <= 21) {
                 setTimeout(() => {
                     stand();
@@ -655,7 +796,7 @@
                 message = 'El dealer ganó con mayor puntuación.';
             } else {
                 result = 'draw';
-                gameState.balance += gameState.currentBet; // Recuperar apuesta
+                gameState.balance += gameState.currentBet;
                 message = 'Empate. Recuperas tu apuesta.';
             }
 
@@ -688,12 +829,11 @@
             updateDisplay();
             updateStats();
 
-            // Reset para próxima mano
             gameState.currentBet = 0;
         }
 
-        // Funciones de análisis numérico
-        function getRecommendation() {
+        // Función getRecommendation optimizada
+        const getRecommendation = debounce(function() {
             const analysis = performNumericAnalysis();
             
             const recDiv = document.getElementById('recommendation');
@@ -705,32 +845,23 @@
 
             recDiv.className = 'recommendation ' + analysis.recommendation;
 
-            // Actualizar análisis numérico
             document.getElementById('newtonResult').textContent = analysis.newton_raphson.toFixed(4);
             document.getElementById('interpolationResult').textContent = analysis.interpolation.toFixed(4);
             document.getElementById('integrationResult').textContent = analysis.integration.toFixed(4);
             document.getElementById('monteCarloResult').textContent = analysis.monte_carlo.toFixed(4);
 
             updateProbabilityChart(analysis);
-        }
+        }, 250);
 
         function performNumericAnalysis() {
             const playerTotal = gameState.playerTotal;
             const dealerVisible = gameState.dealerCards[0].getValue();
 
-            // Newton-Raphson para probabilidad óptima
             const newtonResult = newtonRaphsonOptimalProbability(playerTotal, dealerVisible);
-            
-            // Interpolación de Newton
             const interpolationResult = newtonInterpolation(playerTotal, dealerVisible);
-            
-            // Integración trapezoidal
             const integrationResult = trapezoidalIntegration(playerTotal, dealerVisible);
-            
-            // Monte Carlo
-            const monteCarloResult = monteCarloSimulation(playerTotal, dealerVisible, 1000);
+            const monteCarloResult = monteCarloSimulation(playerTotal, dealerVisible, 500); // Reducido para rendimiento
 
-            // Determinar recomendación final
             const hitProbability = (newtonResult + interpolationResult + monteCarloResult) / 3;
             const recommendation = hitProbability > 0.5 ? 'hit' : 'stand';
             const confidence = Math.abs(hitProbability - 0.5) * 2;
@@ -745,9 +876,8 @@
             };
         }
 
-        // Implementación de métodos numéricos
+        // Implementación de métodos numéricos optimizados
         function newtonRaphsonOptimalProbability(playerTotal, dealerVisible) {
-            // Simplificado: probabilidad basada en estrategia básica
             if (playerTotal <= 11) return 0.9;
             if (playerTotal >= 17) return 0.1;
             
@@ -758,12 +888,10 @@
         }
 
         function newtonInterpolation(playerTotal, dealerVisible) {
-            // Puntos conocidos de probabilidad de éxito
             const knownPoints = [
                 {x: 12, y: 0.31}, {x: 15, y: 0.38}, {x: 18, y: 0.67}, {x: 20, y: 0.85}
             ];
             
-            // Interpolación lineal simple
             for (let i = 0; i < knownPoints.length - 1; i++) {
                 if (playerTotal >= knownPoints[i].x && playerTotal <= knownPoints[i + 1].x) {
                     const t = (playerTotal - knownPoints[i].x) / (knownPoints[i + 1].x - knownPoints[i].x);
@@ -775,9 +903,8 @@
         }
 
         function trapezoidalIntegration(playerTotal, dealerVisible) {
-            // Integrar función de probabilidad acumulada
             const a = 0, b = 1;
-            const n = 100;
+            const n = 20; // Muy reducido para máximo rendimiento
             const h = (b - a) / n;
             
             let sum = probabilityDensity(a, playerTotal) + probabilityDensity(b, playerTotal);
@@ -801,9 +928,9 @@
             return wins / iterations;
         }
 
-        // Funciones auxiliares
+        // Funciones auxiliares optimizadas
         function getBustProbability(playerTotal) {
-            const cardsLeft = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10]; // A-K
+            const cardsLeft = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10];
             let bustCards = 0;
             
             for (let card of cardsLeft) {
@@ -822,20 +949,17 @@
         }
 
         function probabilityDensity(x, playerTotal) {
-            // Función de densidad simplificada
             const optimal = playerTotal >= 17 ? 0.2 : 0.8;
             const variance = 0.1;
             return Math.exp(-Math.pow(x - optimal, 2) / (2 * variance));
         }
 
         function simulateHand(playerTotal, dealerVisible) {
-            // Simular hit
             const newCard = Math.floor(Math.random() * 10) + 1;
             const newTotal = playerTotal + newCard;
             
             if (newTotal > 21) return false;
             
-            // Simular dealer
             let dealerTotal = dealerVisible + Math.floor(Math.random() * 10) + 1;
             while (dealerTotal < 17) {
                 dealerTotal += Math.floor(Math.random() * 10) + 1;
@@ -845,7 +969,7 @@
             return newTotal > dealerTotal;
         }
 
-        // Funciones de UI
+        // Funciones de UI optimizadas
         function displayCards(containerId, cards) {
             const container = document.getElementById(containerId);
             container.innerHTML = '';
@@ -900,433 +1024,157 @@
                 gameState.stats.handsPlayed > 0 ? 
                 ((gameState.stats.wins / gameState.stats.handsPlayed) * 100).toFixed(1) + '%' : '0%';
             
-            // CORRECCIÓN: Agregar el símbolo de dólar correctamente
             const profit = gameState.stats.totalProfit;
             const profitText = profit >= 0 ? `+${profit}` : `-${Math.abs(profit)}`;
             document.getElementById('totalProfit').textContent = profitText;
         }
 
+        // Gráfico CSS optimizado (reemplaza Chart.js)
         function updateProbabilityChart(data) {
-            const ctx = document.getElementById('probabilityChart').getContext('2d');
-            
-            // Destruir gráfico anterior de forma más eficiente
-            if (chart) {
-                chart.destroy();
-                chart = null;
-            }
-            
-            const chartData = {
-                labels: ['Newton-Raphson', 'Interpolación', 'Integración', 'Monte Carlo'],
-                datasets: [{
-                    label: 'Probabilidad de Éxito',
-                    data: [
-                        data.newton_raphson || 0,
-                        data.interpolation || 0,
-                        data.integration || 0,
-                        data.monte_carlo || 0
-                    ],
-                    backgroundColor: [
-                        'rgba(34, 197, 94, 0.8)',
-                        'rgba(59, 130, 246, 0.8)',
-                        'rgba(245, 158, 11, 0.8)',
-                        'rgba(168, 85, 247, 0.8)'
-                    ],
-                    borderColor: [
-                        'rgba(34, 197, 94, 1)',
-                        'rgba(59, 130, 246, 1)',
-                        'rgba(245, 158, 11, 1)',
-                        'rgba(168, 85, 247, 1)'
-                    ],
-                    borderWidth: 2
-                }]
-            };
-            
-            chart = new Chart(ctx, {
-                type: 'bar',
-                data: chartData,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        title: {
-                            display: true,
-                            text: 'Análisis Comparativo',
-                            color: 'white'
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 1,
-                            ticks: {
-                                color: 'white',
-                                callback: function(value) {
-                                    return (value * 100).toFixed(0) + '%';
-                                }
-                            },
-                            grid: {
-                                color: 'rgba(255,255,255,0.1)'
-                            }
-                        },
-                        x: {
-                            ticks: {
-                                color: 'white',
-                                maxRotation: 45,
-                                font: {
-                                    size: 10
-                                }
-                            },
-                            grid: {
-                                color: 'rgba(255,255,255,0.1)'
-                            }
-                        }
-                    },
-                    // Reducir animación para mejorar rendimiento
-                    animation: {
-                        duration: 500,
-                        easing: 'easeInOutQuart'
-                    },
-                    // Desactivar interacciones innecesarias
-                    interaction: {
-                        intersect: false
-                    }
+            const methods = [
+                { id: 'newton', value: data.newton_raphson },
+                { id: 'interpolation', value: data.interpolation },
+                { id: 'integration', value: data.integration },
+                { id: 'monteCarlo', value: data.monte_carlo }
+            ];
+
+            methods.forEach(method => {
+                const bar = document.getElementById(`${method.id}Bar`);
+                const valueSpan = document.getElementById(`${method.id}Value`);
+                
+                if (bar && valueSpan) {
+                    const percentage = Math.max(0, Math.min(100, (method.value * 100)));
+                    bar.style.width = `${percentage}%`;
+                    valueSpan.textContent = `${percentage.toFixed(0)}%`;
                 }
             });
         }
 
-        // Eventos de teclado
+        // Eventos de teclado ultra-optimizados
+        let keydownInProgress = false;
+        
         document.addEventListener('keydown', function(e) {
-            if (!gameState.handInProgress) return;
+            if (!gameState.handInProgress || keydownInProgress || e.repeat) return;
+            
+            keydownInProgress = true;
             
             switch(e.key.toLowerCase()) {
                 case 'h':
-                    if (!document.getElementById('hitBtn').disabled) hit();
+                    if (!document.getElementById('hitBtn').disabled) {
+                        e.preventDefault();
+                        hit();
+                    }
                     break;
                 case 's':
-                    if (!document.getElementById('standBtn').disabled) stand();
+                    if (!document.getElementById('standBtn').disabled) {
+                        e.preventDefault();
+                        stand();
+                    }
                     break;
                 case 'd':
-                    if (!document.getElementById('doubleBtn').disabled) doubleDown();
+                    if (!document.getElementById('doubleBtn').disabled) {
+                        e.preventDefault();
+                        doubleDown();
+                    }
                     break;
                 case 'a':
-                    if (!document.getElementById('analyzeBtn').disabled) getRecommendation();
+                    if (!document.getElementById('analyzeBtn').disabled) {
+                        e.preventDefault();
+                        getRecommendation();
+                    }
                     break;
                 case 'n':
-                    if (!document.getElementById('newHandBtn').disabled) newHand();
+                    if (!document.getElementById('newHandBtn').disabled) {
+                        e.preventDefault();
+                        newHand();
+                    }
                     break;
             }
+            
+            setTimeout(() => {
+                keydownInProgress = false;
+            }, 200);
         });
 
-        // Auto-analizar cuando comience una nueva mano
-        function autoAnalyze() {
-            if (gameState.handInProgress && gameState.playerTotal < 21) {
-                setTimeout(() => {
-                    getRecommendation();
-                }, 1000);
-            }
-        }
-
-        // Funciones adicionales de métodos numéricos avanzados
-
-        // Método de Bisección para encontrar probabilidad óptima
-        function bisectionMethod(playerTotal, dealerVisible, tolerance = 0.0001) {
-            let a = 0, b = 1;
-            let iterations = 0;
-            const maxIterations = 100;
-
-            while ((b - a) / 2 > tolerance && iterations < maxIterations) {
-                const c = (a + b) / 2;
-                const fc = expectedValueFunction(c, playerTotal, dealerVisible);
-                
-                if (fc === 0) break;
-                
-                if (expectedValueFunction(a, playerTotal, dealerVisible) * fc < 0) {
-                    b = c;
-                } else {
-                    a = c;
-                }
-                iterations++;
-            }
-            
-            return (a + b) / 2;
-        }
-
-        // Función de valor esperado para métodos numéricos
-        function expectedValueFunction(prob, playerTotal, dealerVisible) {
-            const hitExpected = calculateHitExpectedValue(playerTotal, dealerVisible);
-            const standExpected = calculateStandExpectedValue(playerTotal, dealerVisible);
-            return prob * hitExpected + (1 - prob) * standExpected;
-        }
-
-        function calculateHitExpectedValue(playerTotal, dealerVisible) {
-            let expectedValue = 0;
-            const possibleCards = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10];
-            
-            for (let card of possibleCards) {
-                const newTotal = playerTotal + card;
-                const probability = 1 / possibleCards.length;
-                
-                if (newTotal > 21) {
-                    expectedValue += probability * (-1); // Bust
-                } else {
-                    expectedValue += probability * calculateStandExpectedValue(newTotal, dealerVisible);
-                }
-            }
-            
-            return expectedValue;
-        }
-
-        function calculateStandExpectedValue(playerTotal, dealerVisible) {
-            const dealerBustProb = getDealerBustProbability(dealerVisible);
-            let expectedValue = dealerBustProb * 1; // Win if dealer busts
-            
-            // Approximate dealer final totals
-            const dealerTotals = {17: 0.13, 18: 0.13, 19: 0.13, 20: 0.13, 21: 0.12};
-            
-            for (let [total, prob] of Object.entries(dealerTotals)) {
-                if (playerTotal > parseInt(total)) {
-                    expectedValue += prob * 1; // Win
-                } else if (playerTotal < parseInt(total)) {
-                    expectedValue += prob * (-1); // Loss
-                }
-                // Draw = 0, no change
-            }
-            
-            return expectedValue;
-        }
-
-        // Algoritmo genético para optimización de estrategia
-        function geneticAlgorithmStrategy(playerTotal, dealerVisible) {
-            const populationSize = 50;
-            const generations = 20;
-            let population = [];
-            
-            // Initialize population
-            for (let i = 0; i < populationSize; i++) {
-                population.push({
-                    hitThreshold: Math.random(),
-                    dealerFactor: Math.random(),
-                    fitness: 0
-                });
-            }
-            
-            // Evolution
-            for (let gen = 0; gen < generations; gen++) {
-                // Evaluate fitness
-                for (let individual of population) {
-                    individual.fitness = evaluateStrategyFitness(individual, playerTotal, dealerVisible);
-                }
-                
-                // Selection and crossover
-                population.sort((a, b) => b.fitness - a.fitness);
-                const newPopulation = population.slice(0, populationSize / 2);
-                
-                while (newPopulation.length < populationSize) {
-                    const parent1 = population[Math.floor(Math.random() * populationSize / 2)];
-                    const parent2 = population[Math.floor(Math.random() * populationSize / 2)];
-                    
-                    const child = {
-                        hitThreshold: (parent1.hitThreshold + parent2.hitThreshold) / 2,
-                        dealerFactor: (parent1.dealerFactor + parent2.dealerFactor) / 2,
-                        fitness: 0
-                    };
-                    
-                    // Mutation
-                    if (Math.random() < 0.1) {
-                        child.hitThreshold += (Math.random() - 0.5) * 0.2;
-                        child.dealerFactor += (Math.random() - 0.5) * 0.2;
-                    }
-                    
-                    newPopulation.push(child);
-                }
-                
-                population = newPopulation;
-            }
-            
-            return population[0].hitThreshold;
-        }
-
-        function evaluateStrategyFitness(strategy, playerTotal, dealerVisible) {
-            const hitProb = strategy.hitThreshold * (1 + strategy.dealerFactor * getDealerBustProbability(dealerVisible));
-            const expectedValue = expectedValueFunction(hitProb, playerTotal, dealerVisible);
-            return expectedValue;
-        }
-
-        // Redes neuronales básicas para predicción
-        function neuralNetworkPrediction(playerTotal, dealerVisible) {
-            // Simplified neural network with hardcoded weights
-            const input = [playerTotal / 21, dealerVisible / 11];
-            
-            // Hidden layer
-            const hidden = [
-                Math.tanh(input[0] * 0.5 + input[1] * 0.3 - 0.2),
-                Math.tanh(input[0] * -0.4 + input[1] * 0.6 + 0.1),
-                Math.tanh(input[0] * 0.7 + input[1] * -0.2 + 0.3)
-            ];
-            
-            // Output layer
-            const output = Math.sigmoid(hidden[0] * 0.4 + hidden[1] * 0.3 + hidden[2] * 0.5 - 0.1);
-            
-            return output;
-        }
-
-        Math.sigmoid = function(x) {
-            return 1 / (1 + Math.exp(-x));
-        };
-
-        // Sistema experto para recomendaciones
-        function expertSystemRecommendation(playerTotal, dealerVisible) {
-            const rules = [
-                // Reglas básicas
-                {condition: () => playerTotal <= 8, action: 'hit', confidence: 1.0},
-                {condition: () => playerTotal >= 17, action: 'stand', confidence: 1.0},
-                {condition: () => playerTotal === 11, action: 'double', confidence: 0.9},
-                {condition: () => playerTotal === 10 && dealerVisible <= 9, action: 'double', confidence: 0.8},
-                {condition: () => playerTotal === 9 && dealerVisible >= 3 && dealerVisible <= 6, action: 'double', confidence: 0.7},
-                
-                // Reglas condicionales
-                {condition: () => playerTotal >= 12 && playerTotal <= 16 && dealerVisible >= 2 && dealerVisible <= 6, action: 'stand', confidence: 0.8},
-                {condition: () => playerTotal >= 12 && playerTotal <= 16 && dealerVisible >= 7, action: 'hit', confidence: 0.7},
-                
-                // Reglas avanzadas
-                {condition: () => playerTotal === 16 && dealerVisible === 10, action: 'hit', confidence: 0.6},
-                {condition: () => playerTotal === 12 && dealerVisible >= 4 && dealerVisible <= 6, action: 'stand', confidence: 0.75}
-            ];
-            
-            for (let rule of rules) {
-                if (rule.condition()) {
-                    return {action: rule.action, confidence: rule.confidence};
-                }
-            }
-            
-            return {action: 'hit', confidence: 0.5}; // Default
-        }
-
-        // Integración de todos los métodos para recomendación final
-        function advancedRecommendationSystem() {
-            const playerTotal = gameState.playerTotal;
-            const dealerVisible = gameState.dealerCards[0].getValue();
-            
-            // Ejecutar todos los métodos
-            const newton = newtonRaphsonOptimalProbability(playerTotal, dealerVisible);
-            const interpolation = newtonInterpolation(playerTotal, dealerVisible);
-            const integration = trapezoidalIntegration(playerTotal, dealerVisible);
-            const monteCarlo = monteCarloSimulation(playerTotal, dealerVisible, 1000);
-            const bisection = bisectionMethod(playerTotal, dealerVisible);
-            const genetic = geneticAlgorithmStrategy(playerTotal, dealerVisible);
-            const neural = neuralNetworkPrediction(playerTotal, dealerVisible);
-            const expert = expertSystemRecommendation(playerTotal, dealerVisible);
-            
-            // Pesos para cada método
-            const weights = {
-                newton: 0.2,
-                interpolation: 0.15,
-                integration: 0.15,
-                monteCarlo: 0.2,
-                bisection: 0.1,
-                genetic: 0.05,
-                neural: 0.1,
-                expert: 0.05
-            };
-            
-            // Calcular puntuación ponderada
-            const hitScore = 
-                newton * weights.newton +
-                interpolation * weights.interpolation +
-                integration * weights.integration +
-                monteCarlo * weights.monteCarlo +
-                bisection * weights.bisection +
-                genetic * weights.genetic +
-                neural * weights.neural +
-                (expert.action === 'hit' ? expert.confidence : 0) * weights.expert;
-            
-            const standScore = 1 - hitScore;
-            
-            let recommendation, confidence;
-            
-            if (expert.action === 'double' && gameState.playerCards.length === 2) {
-                recommendation = 'double';
-                confidence = expert.confidence;
-            } else if (hitScore > standScore) {
-                recommendation = 'hit';
-                confidence = hitScore;
-            } else {
-                recommendation = 'stand';
-                confidence = standScore;
-            }
-            
-            return {
-                recommendation,
-                confidence: Math.min(confidence, 1.0),
-                methods: {
-                    newton,
-                    interpolation,
-                    integration,
-                    monte_carlo: monteCarlo,
-                    bisection,
-                    genetic,
-                    neural,
-                    expert: expert.action === 'hit' ? expert.confidence : (1 - expert.confidence)
-                }
-            };
-        }
-
-        // Modificar la función getRecommendation para usar el sistema avanzado
-        function getRecommendation() {
-                    const getRecommendationDebounced = debounce(function() {
-            const analysis = advancedRecommendationSystem();
-            
-            const recDiv = document.getElementById('recommendation');
-            const actionDiv = document.getElementById('recommendedAction');
-            const confidenceDiv = document.getElementById('confidence');
-
-            actionDiv.innerHTML = `<strong>${analysis.recommendation.toUpperCase()}</strong>`;
-            confidenceDiv.innerHTML = `Confianza: ${(analysis.confidence * 100).toFixed(1)}%`;
-
-            recDiv.className = 'recommendation ' + analysis.recommendation;
-
-            // Actualizar análisis numérico con más métodos
-            document.getElementById('newtonResult').textContent = analysis.methods.newton.toFixed(4);
-            document.getElementById('interpolationResult').textContent = analysis.methods.interpolation.toFixed(4);
-            document.getElementById('integrationResult').textContent = analysis.methods.integration.toFixed(4);
-            document.getElementById('monteCarloResult').textContent = analysis.methods.monte_carlo.toFixed(4);
-
-            updateProbabilityChart(analysis.methods);
-        }, 300); // Esperar 300ms entre llamadas
-        }
-
-        // Inicialización mejorada
+        // Inicialización ultra-optimizada
         document.addEventListener('DOMContentLoaded', function() {
+            // Inicializar monitor de rendimiento
+            new PerformanceMonitor();
+            
             updateGameStatus('Haz clic en "Nuevo Juego" para comenzar', '');
             
-            // Mostrar información de controles
-            console.log('Controles de teclado:');
-            console.log('H - Hit');
-            console.log('S - Stand');
-            console.log('D - Doblar');
-            console.log('A - Analizar');
-            console.log('N - Nueva Mano');
-            
-            // Inicializar gráfico vacío
+            // Inicializar gráfico CSS
             updateProbabilityChart({
                 newton_raphson: 0,
                 interpolation: 0,
                 integration: 0,
                 monte_carlo: 0
             });
+            
+            console.log('🎮 Controles optimizados:');
+            console.log('H-Hit | S-Stand | D-Doblar | A-Analizar | N-Nueva Mano');
         });
 
-        // Override de la función newHand para incluir auto-análisis
-        const originalNewHand = newHand;
-        newHand = function() {
-            originalNewHand();
-            if (gameState.handInProgress) {
-                autoAnalyze();
+        // Sistema de limpieza de memoria
+        let cleanupCounter = 0;
+        const originalEndHand = endHand;
+        
+        endHand = function(result, message) {
+            originalEndHand(result, message);
+            cleanupCounter++;
+            
+            // Limpieza cada 5 manos
+            if (cleanupCounter % 5 === 0) {
+                // Limpiar referencias innecesarias
+                if (window.gc && typeof window.gc === 'function') {
+                    window.gc();
+                }
+                
+                // Optimizar DOM
+                const unusedElements = document.querySelectorAll('.hidden, .removed');
+                unusedElements.forEach(el => el.remove());
             }
         };
+
+        // Prevenir memory leaks
+        window.addEventListener('beforeunload', function() {
+            // Limpiar cualquier referencia
+            gameState = null;
+        });
+
+        // Throttle para resize events
+        let resizeTimeout;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(function() {
+                // Reajustar elementos si es necesario
+                updateDisplay();
+            }, 150);
+        });
+
+        // Sistema de auto-análisis optimizado
+        function autoAnalyze() {
+            if (gameState.handInProgress && gameState.playerTotal < 21) {
+                // Usar setTimeout en lugar de requestAnimationFrame
+                setTimeout(() => {
+                    getRecommendation();
+                }, 600);
+            }
+        }
+
+        // Función de utilidad para debugging de rendimiento
+        function logPerformanceMetrics() {
+            if (performance.memory) {
+                console.log('Memory Usage:', {
+                    used: Math.round(performance.memory.usedJSHeapSize / 1048576) + ' MB',
+                    total: Math.round(performance.memory.totalJSHeapSize / 1048576) + ' MB',
+                    limit: Math.round(performance.memory.jsHeapSizeLimit / 1048576) + ' MB'
+                });
+            }
+        }
+
+        // Llamar métricas cada 30 segundos
+        setInterval(logPerformanceMetrics, 30000);
     </script>
 </body>
 </html>
