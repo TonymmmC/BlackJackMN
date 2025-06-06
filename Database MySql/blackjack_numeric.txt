@@ -1,0 +1,122 @@
+-- Crear base de datos
+CREATE DATABASE IF NOT EXISTS blackjack_numeric;
+USE blackjack_numeric;
+
+-- Tabla de juegos
+CREATE TABLE games (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    player_name VARCHAR(100) NOT NULL,
+    start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    end_time TIMESTAMP NULL,
+    status ENUM('active', 'finished', 'abandoned') DEFAULT 'active',
+    total_hands INT DEFAULT 0,
+    wins INT DEFAULT 0,
+    losses INT DEFAULT 0,
+    draws INT DEFAULT 0,
+    initial_balance DECIMAL(10,2) DEFAULT 1000.00,
+    current_balance DECIMAL(10,2) DEFAULT 1000.00
+);
+
+-- Tabla de manos individuales
+CREATE TABLE hands (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    game_id INT NOT NULL,
+    hand_number INT NOT NULL,
+    bet_amount DECIMAL(10,2) NOT NULL,
+    player_cards JSON NOT NULL,
+    dealer_cards JSON NOT NULL,
+    player_total INT NOT NULL,
+    dealer_total INT NOT NULL,
+    result ENUM('win', 'loss', 'draw', 'blackjack') NOT NULL,
+    profit_loss DECIMAL(10,2) NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+);
+
+-- Tabla de cartas (para referencia)
+CREATE TABLE cards (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    suit ENUM('hearts', 'diamonds', 'clubs', 'spades') NOT NULL,
+    rank ENUM('A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K') NOT NULL,
+    value INT NOT NULL,
+    alt_value INT NULL -- Para el As (1 o 11)
+);
+
+-- Tabla de estadísticas
+CREATE TABLE statistics (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    game_id INT NOT NULL,
+    hand_id INT NOT NULL,
+    player_total INT NOT NULL,
+    dealer_visible_card INT NOT NULL,
+    recommended_action ENUM('hit', 'stand', 'double', 'split') NOT NULL,
+    actual_action ENUM('hit', 'stand', 'double', 'split') NOT NULL,
+    probability_win DECIMAL(5,4) NOT NULL,
+    probability_bust DECIMAL(5,4) NOT NULL,
+    expected_value DECIMAL(8,4) NOT NULL,
+    calculation_method VARCHAR(50) NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+    FOREIGN KEY (hand_id) REFERENCES hands(id) ON DELETE CASCADE
+);
+
+-- Tabla de cálculos numéricos
+CREATE TABLE numeric_calculations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    hand_id INT NOT NULL,
+    method_used ENUM('newton_raphson', 'newton_interpolation', 'trapezoidal_integration') NOT NULL,
+    input_parameters JSON NOT NULL,
+    calculation_steps JSON NOT NULL,
+    result_value DECIMAL(10,6) NOT NULL,
+    execution_time_ms DECIMAL(8,3) NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (hand_id) REFERENCES hands(id) ON DELETE CASCADE
+);
+
+-- Insertar datos iniciales de cartas
+INSERT INTO cards (suit, rank, value, alt_value) VALUES
+('hearts', 'A', 1, 11), ('hearts', '2', 2, NULL), ('hearts', '3', 3, NULL), ('hearts', '4', 4, NULL),
+('hearts', '5', 5, NULL), ('hearts', '6', 6, NULL), ('hearts', '7', 7, NULL), ('hearts', '8', 8, NULL),
+('hearts', '9', 9, NULL), ('hearts', '10', 10, NULL), ('hearts', 'J', 10, NULL), ('hearts', 'Q', 10, NULL), ('hearts', 'K', 10, NULL),
+
+('diamonds', 'A', 1, 11), ('diamonds', '2', 2, NULL), ('diamonds', '3', 3, NULL), ('diamonds', '4', 4, NULL),
+('diamonds', '5', 5, NULL), ('diamonds', '6', 6, NULL), ('diamonds', '7', 7, NULL), ('diamonds', '8', 8, NULL),
+('diamonds', '9', 9, NULL), ('diamonds', '10', 10, NULL), ('diamonds', 'J', 10, NULL), ('diamonds', 'Q', 10, NULL), ('diamonds', 'K', 10, NULL),
+
+('clubs', 'A', 1, 11), ('clubs', '2', 2, NULL), ('clubs', '3', 3, NULL), ('clubs', '4', 4, NULL),
+('clubs', '5', 5, NULL), ('clubs', '6', 6, NULL), ('clubs', '7', 7, NULL), ('clubs', '8', 8, NULL),
+('clubs', '9', 9, NULL), ('clubs', '10', 10, NULL), ('clubs', 'J', 10, NULL), ('clubs', 'Q', 10, NULL), ('clubs', 'K', 10, NULL),
+
+('spades', 'A', 1, 11), ('spades', '2', 2, NULL), ('spades', '3', 3, NULL), ('spades', '4', 4, NULL),
+('spades', '5', 5, NULL), ('spades', '6', 6, NULL), ('spades', '7', 7, NULL), ('spades', '8', 8, NULL),
+('spades', '9', 9, NULL), ('spades', '10', 10, NULL), ('spades', 'J', 10, NULL), ('spades', 'Q', 10, NULL), ('spades', 'K', 10, NULL);
+
+-- Crear índices para optimización
+CREATE INDEX idx_games_status ON games(status);
+CREATE INDEX idx_hands_game_id ON hands(game_id);
+CREATE INDEX idx_statistics_game_id ON statistics(game_id);
+CREATE INDEX idx_numeric_calculations_hand_id ON numeric_calculations(hand_id);
+
+-- Tabla de logs de juego
+CREATE TABLE game_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    game_id INT NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    data JSON,
+    numeric_data JSON,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+);
+CREATE VIEW game_summary AS
+SELECT 
+    g.id,
+    g.player_name,
+    g.total_hands,
+    g.wins,
+    g.losses,
+    g.draws,
+    ROUND((g.wins / NULLIF(g.total_hands, 0)) * 100, 2) as win_percentage,
+    g.current_balance - g.initial_balance as profit_loss,
+    g.start_time,
+    g.status
+FROM games g;
