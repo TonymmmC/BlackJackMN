@@ -1,5 +1,5 @@
 <?php
-// utils/NumericMethods.php
+// utils/NumericMethods.php - Fixed version
 class NumericMethods {
     private $db;
     
@@ -9,7 +9,6 @@ class NumericMethods {
 
     /**
      * Newton-Raphson para calcular probabilidad óptima de hit/stand
-     * Busca el punto donde la derivada del valor esperado es 0
      */
     public function newtonRaphsonOptimalProbability($playerTotal, $dealerVisible, $remainingCards, $tolerance = 0.0001, $maxIterations = 100) {
         $startTime = microtime(true);
@@ -48,19 +47,17 @@ class NumericMethods {
         
         $executionTime = (microtime(true) - $startTime) * 1000;
         
-        $result = [
+        return [
             'optimal_probability' => $x,
             'recommendation' => $x > 0.5 ? 'hit' : 'stand',
             'iterations' => $i + 1,
             'execution_time_ms' => $executionTime,
             'steps' => $steps
         ];
-        
-        return $result;
     }
 
     /**
-     * Interpolación de Newton para estimar probabilidades de cartas restantes
+     * Interpolación de Newton para estimar probabilidades
      */
     public function newtonInterpolation($knownProbabilities, $targetValue) {
         $startTime = microtime(true);
@@ -171,6 +168,27 @@ class NumericMethods {
         return $analysis;
     }
 
+    public function getRemainingCardsFromDeck($usedCards) {
+        // Inicializar contador de cartas
+        $remaining = [
+            1 => 4, 2 => 4, 3 => 4, 4 => 4, 5 => 4, 6 => 4, 7 => 4, 
+            8 => 4, 9 => 4, 10 => 16, 11 => 4 // 10, J, Q, K = 16 cartas de valor 10
+        ];
+        
+        // Restar cartas usadas
+        foreach ($usedCards as $card) {
+            $value = $card->getValue();
+            if ($value >= 10) $value = 10; // J, Q, K = 10
+            if ($card->isAce()) $value = 11; // As como 11 para cálculos
+            
+            if (isset($remaining[$value])) {
+                $remaining[$value] = max(0, $remaining[$value] - 1);
+            }
+        }
+        
+        return $remaining;
+    }
+
     // Métodos auxiliares privados
     
     private function expectedValueDifference($prob, $playerTotal, $dealerVisible, $remainingCards) {
@@ -190,14 +208,18 @@ class NumericMethods {
         $expectedValue = 0;
         $totalCards = array_sum($remainingCards);
         
+        if ($totalCards == 0) return -1; // No hay cartas, asumimos pérdida
+        
         foreach ($remainingCards as $cardValue => $count) {
+            if ($count <= 0) continue;
+            
             $probability = $count / $totalCards;
             $newTotal = $playerTotal + $cardValue;
             
             if ($newTotal > 21) {
                 $expectedValue += $probability * (-1); // Bust = -1
             } else {
-                // Recursivamente calcular valor de la nueva situación
+                // Valor de pararse con el nuevo total
                 $expectedValue += $probability * $this->calculateStandExpectedValue($newTotal, $dealerVisible);
             }
         }
@@ -229,32 +251,23 @@ class NumericMethods {
     }
     
     private function getBasicStrategyProbability($playerTotal, $dealerVisible) {
-        // Estrategia básica simplificada para valor inicial
+        // Estrategia básica simplificada
+        if ($playerTotal <= 11) return 1.0; // Siempre hit
+        if ($playerTotal >= 17) return 0.0; // Siempre stand
+        
+        // Para totales intermedios, usar tabla simplificada
         $strategy = [
-            // [playerTotal => [dealerVisible => probability_of_hit]]
-            5 => [2 => 1, 3 => 1, 4 => 1, 5 => 1, 6 => 1, 7 => 1, 8 => 1, 9 => 1, 10 => 1, 11 => 1],
-            6 => [2 => 1, 3 => 1, 4 => 1, 5 => 1, 6 => 1, 7 => 1, 8 => 1, 9 => 1, 10 => 1, 11 => 1],
-            7 => [2 => 1, 3 => 1, 4 => 1, 5 => 1, 6 => 1, 7 => 1, 8 => 1, 9 => 1, 10 => 1, 11 => 1],
-            8 => [2 => 1, 3 => 1, 4 => 1, 5 => 1, 6 => 1, 7 => 1, 8 => 1, 9 => 1, 10 => 1, 11 => 1],
-            9 => [2 => 1, 3 => 1, 4 => 1, 5 => 1, 6 => 1, 7 => 1, 8 => 1, 9 => 1, 10 => 1, 11 => 1],
-            10 => [2 => 1, 3 => 1, 4 => 1, 5 => 1, 6 => 1, 7 => 1, 8 => 1, 9 => 1, 10 => 1, 11 => 1],
-            11 => [2 => 1, 3 => 1, 4 => 1, 5 => 1, 6 => 1, 7 => 1, 8 => 1, 9 => 1, 10 => 1, 11 => 1],
-            12 => [2 => 1, 3 => 1, 4 => 0, 5 => 0, 6 => 0, 7 => 1, 8 => 1, 9 => 1, 10 => 1, 11 => 1],
-            13 => [2 => 0, 3 => 0, 4 => 0, 5 => 0, 6 => 0, 7 => 1, 8 => 1, 9 => 1, 10 => 1, 11 => 1],
-            14 => [2 => 0, 3 => 0, 4 => 0, 5 => 0, 6 => 0, 7 => 1, 8 => 1, 9 => 1, 10 => 1, 11 => 1],
-            15 => [2 => 0, 3 => 0, 4 => 0, 5 => 0, 6 => 0, 7 => 1, 8 => 1, 9 => 1, 10 => 1, 11 => 1],
-            16 => [2 => 0, 3 => 0, 4 => 0, 5 => 0, 6 => 0, 7 => 1, 8 => 1, 9 => 1, 10 => 1, 11 => 1],
-            17 => [2 => 0, 3 => 0, 4 => 0, 5 => 0, 6 => 0, 7 => 0, 8 => 0, 9 => 0, 10 => 0, 11 => 0],
-            18 => [2 => 0, 3 => 0, 4 => 0, 5 => 0, 6 => 0, 7 => 0, 8 => 0, 9 => 0, 10 => 0, 11 => 0],
-            19 => [2 => 0, 3 => 0, 4 => 0, 5 => 0, 6 => 0, 7 => 0, 8 => 0, 9 => 0, 10 => 0, 11 => 0],
-            20 => [2 => 0, 3 => 0, 4 => 0, 5 => 0, 6 => 0, 7 => 0, 8 => 0, 9 => 0, 10 => 0, 11 => 0],
-            21 => [2 => 0, 3 => 0, 4 => 0, 5 => 0, 6 => 0, 7 => 0, 8 => 0, 9 => 0, 10 => 0, 11 => 0]
+            12 => [2 => 0.3, 3 => 0.3, 4 => 0.0, 5 => 0.0, 6 => 0.0, 7 => 0.8, 8 => 0.8, 9 => 0.8, 10 => 0.8, 11 => 0.8],
+            13 => [2 => 0.0, 3 => 0.0, 4 => 0.0, 5 => 0.0, 6 => 0.0, 7 => 0.8, 8 => 0.8, 9 => 0.8, 10 => 0.8, 11 => 0.8],
+            14 => [2 => 0.0, 3 => 0.0, 4 => 0.0, 5 => 0.0, 6 => 0.0, 7 => 0.8, 8 => 0.8, 9 => 0.8, 10 => 0.8, 11 => 0.8],
+            15 => [2 => 0.0, 3 => 0.0, 4 => 0.0, 5 => 0.0, 6 => 0.0, 7 => 0.8, 8 => 0.8, 9 => 0.8, 10 => 0.8, 11 => 0.8],
+            16 => [2 => 0.0, 3 => 0.0, 4 => 0.0, 5 => 0.0, 6 => 0.0, 7 => 0.8, 8 => 0.8, 9 => 0.8, 10 => 0.8, 11 => 0.8]
         ];
         
         return $strategy[$playerTotal][$dealerVisible] ?? 0.5;
     }
     
-    private function getDealerBustProbability($dealerVisible) {
+    public function getDealerBustProbability($dealerVisible) {
         // Probabilidades de bust del dealer según carta visible
         $bustProbs = [
             2 => 0.35, 3 => 0.37, 4 => 0.40, 5 => 0.42, 6 => 0.42,
@@ -263,7 +276,7 @@ class NumericMethods {
         return $bustProbs[$dealerVisible] ?? 0.25;
     }
     
-    private function getDealerTotalProbabilities($dealerVisible) {
+    public function getDealerTotalProbabilities($dealerVisible) {
         // Probabilidades de totales finales del dealer según carta visible
         $probabilities = [
             2 => [17 => 0.14, 18 => 0.13, 19 => 0.13, 20 => 0.13, 21 => 0.12],
@@ -285,10 +298,12 @@ class NumericMethods {
         $probabilities = [];
         
         foreach ($remainingCards as $value => $count) {
-            $probabilities[] = [
-                'x' => $value,
-                'y' => $count / $total
-            ];
+            if ($count > 0) {
+                $probabilities[] = [
+                    'x' => $value,
+                    'y' => $count / $total
+                ];
+            }
         }
         
         return $probabilities;
@@ -296,7 +311,6 @@ class NumericMethods {
     
     private function probabilityDensityFunction($x, $playerTotal, $dealerVisible) {
         // Función de densidad de probabilidad para integración
-        // Simula la distribución de probabilidad de ganar según la situación
         $optimalPoint = $this->getBasicStrategyProbability($playerTotal, $dealerVisible);
         $variance = 0.1;
         
@@ -333,224 +347,43 @@ class NumericMethods {
     }
     
     private function saveCalculations($handId, $analysis) {
+        if (!$this->db) return;
+        
         foreach ($analysis as $method => $data) {
             if (in_array($method, ['newton_raphson', 'newton_interpolation', 'trapezoidal_integration'])) {
-                $stmt = $this->db->prepare("
-                    INSERT INTO numeric_calculations 
-                    (hand_id, method_used, input_parameters, calculation_steps, result_value, execution_time_ms)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ");
-                
-                $resultValue = 0;
-                switch ($method) {
-                    case 'newton_raphson':
-                        $resultValue = $data['optimal_probability'];
-                        break;
-                    case 'newton_interpolation':
-                        $resultValue = $data['interpolated_value'];
-                        break;
-                    case 'trapezoidal_integration':
-                        $resultValue = $data['cumulative_probability'];
-                        break;
+                try {
+                    $stmt = $this->db->prepare("
+                        INSERT INTO numeric_calculations 
+                        (hand_id, method_used, input_parameters, calculation_steps, result_value, execution_time_ms)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ");
+                    
+                    $resultValue = 0;
+                    switch ($method) {
+                        case 'newton_raphson':
+                            $resultValue = $data['optimal_probability'];
+                            break;
+                        case 'newton_interpolation':
+                            $resultValue = $data['interpolated_value'];
+                            break;
+                        case 'trapezoidal_integration':
+                            $resultValue = $data['cumulative_probability'];
+                            break;
+                    }
+                    
+                    $stmt->execute([
+                        $handId,
+                        $method,
+                        json_encode($data),
+                        json_encode($data['steps'] ?? []),
+                        $resultValue,
+                        $data['execution_time_ms']
+                    ]);
+                } catch (Exception $e) {
+                    error_log("Error saving calculation: " . $e->getMessage());
                 }
-                
-                $stmt->execute([
-                    $handId,
-                    $method,
-                    json_encode($data),
-                    json_encode($data['steps'] ?? []),
-                    $resultValue,
-                    $data['execution_time_ms']
-                ]);
             }
         }
-    }
-    
-    private function calculateHitExpectedValue($playerTotal, $dealerVisible, $remainingCards) {
-        $expectedValue = 0;
-        $totalCards = array_sum($remainingCards);
-        
-        foreach ($remainingCards as $cardValue => $count) {
-            $probability = $count / $totalCards;
-            $newTotal = $playerTotal + $cardValue;
-            
-            if ($newTotal > 21) {
-                $expectedValue += $probability * (-1); // Bust = -1
-            } else {
-                // Recursivamente calcular valor de la nueva situación
-                $expectedValue += $probability * $this->calculateStandExpectedValue($newTotal, $dealerVisible);
-            }
-        }
-        
-        return $expectedValue;
-    }
-    
-    private function calculateStandExpectedValue($playerTotal, $dealerVisible) {
-        // Probabilidades precalculadas del dealer basadas en carta visible
-        $dealerBustProb = $this->getDealerBustProbability($dealerVisible);
-        $dealerTotals = $this->getDealerTotalProbabilities($dealerVisible);
-        
-        $expectedValue = 0;
-        
-        // Si dealer se pasa
-        $expectedValue += $dealerBustProb * 1;
-        
-        // Si dealer termina con total específico
-        foreach ($dealerTotals as $dealerTotal => $probability) {
-            if ($playerTotal > $dealerTotal) {
-                $expectedValue += $probability * 1; // Win
-            } elseif ($playerTotal < $dealerTotal) {
-                $expectedValue += $probability * (-1); // Loss
-            }
-            // Draw = 0, no afecta al valor esperado
-        }
-        
-        return $expectedValue;
-    }
-    public function getRemainingCardsFromDeck($usedCards) {
-        // Inicializar contador de cartas
-        $remaining = [
-            1 => 4, 2 => 4, 3 => 4, 4 => 4, 5 => 4, 6 => 4, 7 => 4, 
-            8 => 4, 9 => 4, 10 => 16, 11 => 4 // 10, J, Q, K = 16 cartas de valor 10
-        ];
-        
-        // Restar cartas usadas
-        foreach ($usedCards as $card) {
-            $value = $card->getValue();
-            if ($value >= 10) $value = 10; // J, Q, K = 10
-            if ($card->isAce()) $value = 11; // As como 11 para cálculos
-            
-            if (isset($remaining[$value])) {
-                $remaining[$value]--;
-            }
-        }
-        
-        return $remaining;
-    }
-}
-
-// controllers/GameController.php
-class GameController {
-    private $db;
-    private $numericMethods;
-    
-    public function __construct() {
-        $this->db = new Database();
-        $this->numericMethods = new NumericMethods($this->db->connect());
-    }
-    
-    public function handleRequest() {
-        header('Content-Type: application/json');
-        
-        $action = $_POST['action'] ?? $_GET['action'] ?? '';
-        
-        try {
-            switch ($action) {
-                case 'start_game':
-                    echo json_encode($this->startGame());
-                    break;
-                case 'new_hand':
-                    echo json_encode($this->newHand());
-                    break;
-                case 'hit':
-                    echo json_encode($this->hit());
-                    break;
-                case 'stand':
-                    echo json_encode($this->stand());
-                    break;
-                case 'analyze':
-                    echo json_encode($this->analyzeCurrentHand());
-                    break;
-                case 'stats':
-                    echo json_encode($this->getStats());
-                    break;
-                default:
-                    throw new Exception('Invalid action');
-            }
-        } catch (Exception $e) {
-            echo json_encode(['error' => $e->getMessage()]);
-        }
-    }
-    
-    private function startGame() {
-        session_start();
-        $playerName = $_POST['player_name'] ?? 'Player';
-        
-        $game = new Game($this->db, $playerName);
-        $_SESSION['game'] = serialize($game);
-        
-        return ['success' => true, 'message' => 'Game started'];
-    }
-    
-    private function newHand() {
-        session_start();
-        if (!isset($_SESSION['game'])) {
-            throw new Exception('No active game');
-        }
-        
-        $game = unserialize($_SESSION['game']);
-        $betAmount = floatval($_POST['bet_amount'] ?? 10);
-        
-        $handData = $game->startNewHand($betAmount);
-        $_SESSION['game'] = serialize($game);
-        
-        return $handData;
-    }
-    
-    private function hit() {
-        session_start();
-        if (!isset($_SESSION['game'])) {
-            throw new Exception('No active game');
-        }
-        
-        $game = unserialize($_SESSION['game']);
-        $result = $game->playerHit();
-        $_SESSION['game'] = serialize($game);
-        
-        return $result;
-    }
-    
-    private function stand() {
-        session_start();
-        if (!isset($_SESSION['game'])) {
-            throw new Exception('No active game');
-        }
-        
-        $game = unserialize($_SESSION['game']);
-        $dealerResult = $game->dealerPlay();
-        $finalResult = $game->evaluateHand();
-        $_SESSION['game'] = serialize($game);
-        
-        return array_merge($dealerResult, $finalResult);
-    }
-    
-    private function analyzeCurrentHand() {
-        session_start();
-        if (!isset($_SESSION['game'])) {
-            throw new Exception('No active game');
-        }
-        
-        $game = unserialize($_SESSION['game']);
-        $player = $game->getPlayer();
-        $dealer = $game->getDealer();
-        
-        $playerTotal = $player->hand->getTotal();
-        $dealerVisible = $dealer->hand->getVisibleCard()->getValue();
-        $remainingCards = $this->numericMethods->getRemainingCardsFromDeck($game->getDeck()->getUsedCards());
-        
-        $analysis = $this->numericMethods->analyzeHand($playerTotal, $dealerVisible, $remainingCards);
-        
-        return $analysis;
-    }
-    
-    private function getStats() {
-        session_start();
-        if (!isset($_SESSION['game'])) {
-            throw new Exception('No active game');
-        }
-        
-        $game = unserialize($_SESSION['game']);
-        return $game->getGameStats();
     }
 }
 ?>

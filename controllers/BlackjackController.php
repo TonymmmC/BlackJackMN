@@ -1,5 +1,9 @@
 <?php
-// controllers/BlackjackController.php - Lógica completa de juego
+// controllers/BlackjackController.php - Versión completa corregida
+require_once 'controllers/GameController.php';
+require_once 'utils/NumericMethods.php';
+require_once 'utils/ProbabilityCalculator.php';
+
 class BlackjackController extends GameController {
     
     public function handleAdvancedRequest() {
@@ -28,12 +32,17 @@ class BlackjackController extends GameController {
                     parent::handleRequest();
             }
         } catch (Exception $e) {
+            http_response_code(400);
             echo json_encode(['error' => $e->getMessage()]);
         }
     }
     
     private function doubleDown() {
         session_start();
+        if (!isset($_SESSION['game'])) {
+            throw new Exception('No active game');
+        }
+        
         $game = unserialize($_SESSION['game']);
         $player = $game->getPlayer();
         
@@ -64,6 +73,10 @@ class BlackjackController extends GameController {
     
     private function split() {
         session_start();
+        if (!isset($_SESSION['game'])) {
+            throw new Exception('No active game');
+        }
+        
         $game = unserialize($_SESSION['game']);
         $player = $game->getPlayer();
         
@@ -100,8 +113,11 @@ class BlackjackController extends GameController {
     
     private function getRecommendation() {
         session_start();
-        $game = unserialize($_SESSION['game']);
+        if (!isset($_SESSION['game'])) {
+            throw new Exception('No active game');
+        }
         
+        $game = unserialize($_SESSION['game']);
         $analysis = $this->analyzeCurrentHand();
         $recommendation = $analysis['final_recommendation'];
         
@@ -113,15 +129,19 @@ class BlackjackController extends GameController {
             'confidence' => $recommendation['confidence'],
             'reasoning' => $recommendation['reasons'],
             'numeric_analysis' => [
-                'newton_raphson' => $analysis['newton_raphson']['optimal_probability'],
-                'interpolation' => $analysis['newton_interpolation']['interpolated_value'],
-                'integration' => $analysis['trapezoidal_integration']['cumulative_probability']
+                'newton_raphson' => $analysis['newton_raphson']['optimal_probability'] ?? 0,
+                'interpolation' => $analysis['newton_interpolation']['interpolated_value'] ?? 0,
+                'integration' => $analysis['trapezoidal_integration']['cumulative_probability'] ?? 0
             ]
         ];
     }
     
     private function getProbabilityAnalysis() {
         session_start();
+        if (!isset($_SESSION['game'])) {
+            throw new Exception('No active game');
+        }
+        
         $game = unserialize($_SESSION['game']);
         $player = $game->getPlayer();
         $dealer = $game->getDealer();
@@ -152,9 +172,13 @@ class BlackjackController extends GameController {
     
     private function calculateWinProbabilityHit($playerTotal, $dealerVisible, $remainingCards) {
         $totalCards = array_sum($remainingCards);
+        if ($totalCards == 0) return 0;
+        
         $winProbability = 0;
         
         foreach ($remainingCards as $cardValue => $count) {
+            if ($count <= 0) continue;
+            
             $cardProb = $count / $totalCards;
             $newTotal = $playerTotal + $cardValue;
             
@@ -186,6 +210,8 @@ class BlackjackController extends GameController {
     
     private function calculateBustProbability($playerTotal, $remainingCards) {
         $totalCards = array_sum($remainingCards);
+        if ($totalCards == 0) return 1; // Si no hay cartas, asumimos bust
+        
         $bustCards = 0;
         
         foreach ($remainingCards as $cardValue => $count) {
@@ -199,6 +225,8 @@ class BlackjackController extends GameController {
     
     private function getNextCardProbabilities($remainingCards) {
         $total = array_sum($remainingCards);
+        if ($total == 0) return [];
+        
         $probabilities = [];
         
         foreach ($remainingCards as $value => $count) {
@@ -210,253 +238,171 @@ class BlackjackController extends GameController {
         return $probabilities;
     }
     
+    private function calculateHitExpectedValue($playerTotal, $dealerVisible, $remainingCards) {
+        return $this->numericMethods->calculateHitExpectedValue($playerTotal, $dealerVisible, $remainingCards);
+    }
+    
+    private function calculateStandExpectedValue($playerTotal, $dealerVisible) {
+        return $this->numericMethods->calculateStandExpectedValue($playerTotal, $dealerVisible);
+    }
+    
     private function saveRecommendation($recommendation, $analysis) {
+        try {
+            $game = unserialize($_SESSION['game']);
+            $player = $game->getPlayer();
+            $dealer = $game->getDealer();
+            
+            // Simular inserción en tabla statistics (requiere hand_id real)
+            $stmt = $this->db->connect()->prepare("
+                INSERT INTO statistics 
+                (game_id, hand_id, player_total, dealer_visible_card, recommended_action, 
+                 actual_action, probability_win, probability_bust, expected_value, calculation_method)
+                VALUES (?, 0, ?, ?, ?, 'pending', ?, ?, ?, 'combined_numeric')
+            ");
+            
+            $stmt->execute([
+                $game->getGameId(),
+                $player->hand->getTotal(),
+                $dealer->hand->getVisibleCard()->getValue(),
+                $recommendation['action'],
+                $recommendation['confidence'],
+                0, // probability_bust placeholder
+                0  // expected_value placeholder
+            ]);
+        } catch (Exception $e) {
+            error_log("Error saving recommendation: " . $e->getMessage());
+        }
+    }
+    
+    private function saveHandStatistics() {
+        // Placeholder for statistics saving
+        return ['success' => true, 'message' => 'Statistics saved'];
+    }
+}
+
+// controllers/GameController.php - Controlador base
+class GameController {
+    protected $db;
+    protected $numericMethods;
+    
+    public function __construct() {
+        $this->db = new Database();
+        $this->numericMethods = new NumericMethods($this->db->connect());
+    }
+    
+    public function handleRequest() {
+        header('Content-Type: application/json');
+        
+        $action = $_POST['action'] ?? $_GET['action'] ?? '';
+        
+        try {
+            switch ($action) {
+                case 'start_game':
+                    echo json_encode($this->startGame());
+                    break;
+                case 'new_hand':
+                    echo json_encode($this->newHand());
+                    break;
+                case 'hit':
+                    echo json_encode($this->hit());
+                    break;
+                case 'stand':
+                    echo json_encode($this->stand());
+                    break;
+                case 'analyze':
+                    echo json_encode($this->analyzeCurrentHand());
+                    break;
+                case 'stats':
+                    echo json_encode($this->getStats());
+                    break;
+                default:
+                    throw new Exception('Invalid action: ' . $action);
+            }
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+    }
+    
+    protected function startGame() {
+        session_start();
+        $playerName = $_POST['player_name'] ?? 'Player';
+        
+        $game = new Game($this->db, $playerName);
+        $_SESSION['game'] = serialize($game);
+        
+        return ['success' => true, 'message' => 'Game started', 'game_id' => $game->getGameId()];
+    }
+    
+    protected function newHand() {
+        session_start();
+        if (!isset($_SESSION['game'])) {
+            throw new Exception('No active game');
+        }
+        
+        $game = unserialize($_SESSION['game']);
+        $betAmount = floatval($_POST['bet_amount'] ?? 10);
+        
+        $handData = $game->startNewHand($betAmount);
+        $_SESSION['game'] = serialize($game);
+        
+        return $handData;
+    }
+    
+    protected function hit() {
+        session_start();
+        if (!isset($_SESSION['game'])) {
+            throw new Exception('No active game');
+        }
+        
+        $game = unserialize($_SESSION['game']);
+        $result = $game->playerHit();
+        $_SESSION['game'] = serialize($game);
+        
+        return $result;
+    }
+    
+    protected function stand() {
+        session_start();
+        if (!isset($_SESSION['game'])) {
+            throw new Exception('No active game');
+        }
+        
+        $game = unserialize($_SESSION['game']);
+        $dealerResult = $game->dealerPlay();
+        $finalResult = $game->evaluateHand();
+        $_SESSION['game'] = serialize($game);
+        
+        return array_merge($dealerResult, $finalResult);
+    }
+    
+    protected function analyzeCurrentHand() {
+        session_start();
+        if (!isset($_SESSION['game'])) {
+            throw new Exception('No active game');
+        }
+        
         $game = unserialize($_SESSION['game']);
         $player = $game->getPlayer();
         $dealer = $game->getDealer();
         
-        // Simular inserción en tabla statistics (requiere hand_id real)
-        $stmt = $this->db->connect()->prepare("
-            INSERT INTO statistics 
-            (game_id, hand_id, player_total, dealer_visible_card, recommended_action, 
-             actual_action, probability_win, probability_bust, expected_value, calculation_method)
-            VALUES (?, 0, ?, ?, ?, 'pending', ?, ?, ?, 'combined_numeric')
-        ");
+        $playerTotal = $player->hand->getTotal();
+        $dealerVisible = $dealer->hand->getVisibleCard()->getValue();
+        $remainingCards = $this->numericMethods->getRemainingCardsFromDeck($game->getDeck()->getUsedCards());
         
-        $stmt->execute([
-            $game->getGameId(),
-            $player->hand->getTotal(),
-            $dealer->hand->getVisibleCard()->getValue(),
-            $recommendation['action'],
-            $recommendation['confidence'],
-            0, // probability_bust placeholder
-            0  // expected_value placeholder
-        ]);
+        $analysis = $this->numericMethods->analyzeHand($playerTotal, $dealerVisible, $remainingCards);
+        
+        return $analysis;
     }
-}
-
-// utils/ProbabilityCalculator.php - Cálculos especializados
-class ProbabilityCalculator {
     
-    public static function calculateCardCounting($usedCards) {
-        // Hi-Lo card counting system
-        $count = 0;
-        $cardsDealt = count($usedCards);
-        
-        foreach ($usedCards as $card) {
-            $value = $card->getValue();
-            
-            if ($value >= 2 && $value <= 6) {
-                $count += 1; // Low cards
-            } elseif ($value >= 10 || $card->isAce()) {
-                $count -= 1; // High cards
-            }
-            // 7, 8, 9 = 0
+    protected function getStats() {
+        session_start();
+        if (!isset($_SESSION['game'])) {
+            throw new Exception('No active game');
         }
         
-        $trueCount = $cardsDealt > 0 ? $count / (52 - $cardsDealt) * 52 : 0;
-        
-        return [
-            'running_count' => $count,
-            'true_count' => round($trueCount, 2),
-            'deck_penetration' => round($cardsDealt / 52, 2),
-            'advantage' => $trueCount > 0 ? 'player' : 'house'
-        ];
-    }
-    
-    public static function calculateOptimalBet($balance, $trueCount, $baseBet = 10) {
-        // Kelly criterion adaptation
-        if ($trueCount <= 0) {
-            return $baseBet;
-        }
-        
-        $advantage = ($trueCount - 1) * 0.005; // ~0.5% per true count
-        $winProbability = 0.49 + $advantage;
-        $odds = 1; // Even money
-        
-        // Kelly fraction
-        $kellyFraction = ($winProbability * (1 + $odds) - 1) / $odds;
-        $kellyFraction = max(0, min($kellyFraction, 0.25)); // Cap at 25%
-        
-        $optimalBet = $balance * $kellyFraction;
-        return max($baseBet, min($optimalBet, $balance * 0.1)); // Min base bet, max 10% of balance
-    }
-    
-    public static function monteCarloSimulation($playerTotal, $dealerVisible, $action, $iterations = 10000) {
-        $wins = 0;
-        
-        for ($i = 0; $i < $iterations; $i++) {
-            $result = self::simulateHand($playerTotal, $dealerVisible, $action);
-            if ($result['player_wins']) {
-                $wins++;
-            }
-        }
-        
-        return [
-            'win_probability' => $wins / $iterations,
-            'iterations' => $iterations,
-            'confidence_interval' => self::calculateConfidenceInterval($wins, $iterations)
-        ];
-    }
-    
-    private static function simulateHand($playerTotal, $dealerVisible, $action) {
-        // Simplified simulation
-        $deck = array_fill(1, 4, 1); // 4 of each value
-        $deck[10] = 16; // 10, J, Q, K
-        $deck[11] = 4; // Aces as 11
-        
-        // Player action
-        if ($action === 'hit') {
-            $card = self::drawRandomCard($deck);
-            $playerTotal += $card;
-            if ($playerTotal > 21) {
-                return ['player_wins' => false, 'reason' => 'player_bust'];
-            }
-        }
-        
-        // Dealer play
-        $dealerTotal = $dealerVisible;
-        while ($dealerTotal < 17) {
-            $card = self::drawRandomCard($deck);
-            $dealerTotal += $card;
-        }
-        
-        if ($dealerTotal > 21) {
-            return ['player_wins' => true, 'reason' => 'dealer_bust'];
-        }
-        
-        return [
-            'player_wins' => $playerTotal > $dealerTotal,
-            'reason' => $playerTotal > $dealerTotal ? 'higher_total' : 'lower_total'
-        ];
-    }
-    
-    private static function drawRandomCard($deck) {
-        $totalCards = array_sum($deck);
-        $random = mt_rand(1, $totalCards);
-        
-        $cumulative = 0;
-        foreach ($deck as $value => $count) {
-            $cumulative += $count;
-            if ($random <= $cumulative) {
-                return $value;
-            }
-        }
-        return 10; // fallback
-    }
-    
-    private static function calculateConfidenceInterval($successes, $trials, $confidence = 0.95) {
-        $p = $successes / $trials;
-        $z = 1.96; // 95% confidence
-        $margin = $z * sqrt(($p * (1 - $p)) / $trials);
-        
-        return [
-            'lower' => max(0, $p - $margin),
-            'upper' => min(1, $p + $margin)
-        ];
-    }
-}
-
-// models/Statistics.php - Manejo de estadísticas
-class Statistics {
-    private $db;
-    
-    public function __construct($database) {
-        $this->db = $database;
-    }
-    
-    public function getPlayerPerformance($gameId) {
-        $stmt = $this->db->prepare("
-            SELECT 
-                COUNT(*) as total_hands,
-                SUM(CASE WHEN result IN ('win', 'blackjack') THEN 1 ELSE 0 END) as wins,
-                SUM(CASE WHEN result = 'loss' THEN 1 ELSE 0 END) as losses,
-                SUM(CASE WHEN result = 'draw' THEN 1 ELSE 0 END) as draws,
-                SUM(profit_loss) as total_profit,
-                AVG(bet_amount) as avg_bet,
-                MAX(profit_loss) as biggest_win,
-                MIN(profit_loss) as biggest_loss
-            FROM hands WHERE game_id = ?
-        ");
-        $stmt->execute([$gameId]);
-        $stats = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($stats['total_hands'] > 0) {
-            $stats['win_rate'] = round($stats['wins'] / $stats['total_hands'], 4);
-            $stats['avg_profit_per_hand'] = round($stats['total_profit'] / $stats['total_hands'], 2);
-        }
-        
-        return $stats;
-    }
-    
-    public function getNumericMethodsPerformance($gameId) {
-        $stmt = $this->db->prepare("
-            SELECT 
-                method_used,
-                COUNT(*) as usage_count,
-                AVG(result_value) as avg_result,
-                AVG(execution_time_ms) as avg_execution_time,
-                MIN(execution_time_ms) as min_time,
-                MAX(execution_time_ms) as max_time
-            FROM numeric_calculations nc
-            JOIN hands h ON nc.hand_id = h.id
-            WHERE h.game_id = ?
-            GROUP BY method_used
-        ");
-        $stmt->execute([$gameId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-    
-    public function getRecommendationAccuracy($gameId) {
-        $stmt = $this->db->prepare("
-            SELECT 
-                recommended_action,
-                actual_action,
-                COUNT(*) as frequency,
-                AVG(probability_win) as avg_win_prob
-            FROM statistics s
-            JOIN hands h ON s.hand_id = h.id
-            WHERE h.game_id = ? AND actual_action != 'pending'
-            GROUP BY recommended_action, actual_action
-        ");
-        $stmt->execute([$gameId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-    
-    public function exportGameData($gameId) {
-        $game = $this->getGameSummary($gameId);
-        $hands = $this->getHandHistory($gameId);
-        $calculations = $this->getCalculationHistory($gameId);
-        
-        return [
-            'game_summary' => $game,
-            'hand_history' => $hands,
-            'numeric_calculations' => $calculations,
-            'export_timestamp' => date('Y-m-d H:i:s')
-        ];
-    }
-    
-    private function getGameSummary($gameId) {
-        $stmt = $this->db->prepare("SELECT * FROM game_summary WHERE id = ?");
-        $stmt->execute([$gameId]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
-    }
-    
-    private function getHandHistory($gameId) {
-        $stmt = $this->db->prepare("SELECT * FROM hands WHERE game_id = ? ORDER BY hand_number");
-        $stmt->execute([$gameId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-    
-    private function getCalculationHistory($gameId) {
-        $stmt = $this->db->prepare("
-            SELECT nc.* FROM numeric_calculations nc
-            JOIN hands h ON nc.hand_id = h.id
-            WHERE h.game_id = ?
-            ORDER BY nc.timestamp
-        ");
-        $stmt->execute([$gameId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $game = unserialize($_SESSION['game']);
+        return $game->getGameStats();
     }
 }
 ?>

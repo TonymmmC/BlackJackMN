@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blackjack + Métodos Numéricos</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #0c4a6e, #1e293b);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .game-area {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .table {
+            background: #065f46;
+            border-radius: 20px;
+            padding: 30px;
+            position: relative;
+            min-height: 500px;
+        }
+
+        .hand {
+            margin: 20px 0;
+        }
+
+        .cards {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            width: 60px;
+            height: 90px;
+            background: white;
+            color: black;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 5px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            font-weight: bold;
+        }
+
+        .card.hearts, .card.diamonds {
+            color: #dc2626;
+        }
+
+        .sidebar {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            background: #059669;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #047857;
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            background: #6b7280;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .stats {
+            margin: 20px 0;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 5px;
+        }
+
+        .recommendation {
+            background: rgba(34, 197, 94, 0.2);
+            border: 2px solid #22c55e;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .recommendation.hit {
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.2);
+        }
+
+        .recommendation.stand {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        .numeric-analysis {
+            margin-top: 20px;
+            font-size: 12px;
+        }
+
+        .analysis-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+        }
+
+        #probabilityChart {
+            margin-top: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 10px;
+        }
+
+        .bet-input {
+            margin: 10px 0;
+        }
+
+        input[type="number"] {
+            padding: 8px;
+            border-radius: 5px;
+            border: none;
+            width: 100%;
+        }
+
+        .game-info {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .balance {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fbbf24;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .game-area {
+                grid-template-columns: 1fr;
+            }
+            
+            .cards {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🃏 Blackjack + Métodos Numéricos</h1>
+            <p>Análisis matemático en tiempo real</p>
+        </div>
+
+        <div class="game-area">
+            <div class="table">
+                <div class="hand" id="dealerHand">
+                    <h3>🏠 Dealer</h3>
+                    <div class="cards" id="dealerCards"></div>
+                    <div>Total: <span id="dealerTotal">-</span></div>
+                </div>
+
+                <div class="game-info">
+                    <div class="balance">Balance: $<span id="balance">1000</span></div>
+                    <div id="gameStatus"></div>
+                </div>
+
+                <div class="hand" id="playerHand">
+                    <h3>👤 Jugador</h3>
+                    <div class="cards" id="playerCards"></div>
+                    <div>Total: <span id="playerTotal">-</span></div>
+                </div>
+
+                <div class="controls">
+                    <button onclick="startNewGame()" id="startBtn">Nuevo Juego</button>
+                    <button onclick="newHand()" id="newHandBtn" disabled>Nueva Mano</button>
+                    <button onclick="hit()" id="hitBtn" disabled>Hit</button>
+                    <button onclick="stand()" id="standBtn" disabled>Stand</button>
+                    <button onclick="doubleDown()" id="doubleBtn" disabled>Doblar</button>
+                </div>
+
+                <div class="bet-input">
+                    <label>Apuesta:</label>
+                    <input type="number" id="betAmount" value="10" min="1" max="1000">
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="recommendation" id="recommendation">
+                    <h4>🧮 Recomendación</h4>
+                    <div id="recommendedAction">Haz clic en "Analizar" para obtener recomendación</div>
+                    <div id="confidence"></div>
+                    <button onclick="getRecommendation()" id="analyzeBtn">Analizar</button>
+                </div>
+
+                <div class="stats">
+                    <h4>📊 Estadísticas</h4>
+                    <div class="stat-item">
+                        <span>Manos jugadas:</span>
+                        <span id="handsPlayed">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Victorias:</span>
+                        <span id="wins">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>% Victorias:</span>
+                        <span id="winRate">0%</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Ganancia total:</span>
+                        <span id="totalProfit">$0</span>
+                    </div>
+                </div>
+
+                <div class="numeric-analysis">
+                    <h4>🔢 Análisis Numérico</h4>
+                    <div class="analysis-row">
+                        <span>Newton-Raphson:</span>
+                        <span id="newtonResult">-</span>
+                    </div>
+                    <div class="analysis-row">
+                        <span>Interpolación:</span>
+                        <span id="interpolationResult">-</span>
+                    </div>
+                    <div class="analysis-row">
+                        <span>Integración:</span>
+                        <span id="integrationResult">-</span>
+                    </div>
+                </div>
+
+                <canvas id="probabilityChart" width="250" height="150"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let gameState = {
+            gameStarted: false,
+            handInProgress: false,
+            playerName: 'Player'
+        };
+
+        let chart;
+
+        async function startNewGame() {
+            try {
+                const response = await fetch('index.php?action=api', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: 'action=start_game&player_name=' + gameState.playerName
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    gameState.gameStarted = true;
+                    document.getElementById('startBtn').disabled = true;
+                    document.getElementById('newHandBtn').disabled = false;
+                    updateGameStatus('Juego iniciado. Haz una apuesta para comenzar.');
+                }
+            } catch (error) {
+                console.error('Error starting game:', error);
+            }
+        }
+
+        async function newHand() {
+            const betAmount = document.getElementById('betAmount').value;
+            
+            try {
+                const response = await fetch('index.php?action=api', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: `action=new_hand&bet_amount=${betAmount}`
+                });
+                
+                const result = await response.json();
+                if (result.player_cards) {
+                    gameState.handInProgress = true;
+                    displayCards('playerCards', result.player_cards);
+                    displayCards('dealerCards', [result.dealer_visible]);
+                    document.getElementById('playerTotal').textContent = result.player_total;
+                    document.getElementById('dealerTotal').textContent = result.dealer_visible.value;
+                    
+                    document.getElementById('newHandBtn').disabled = true;
+                    document.getElementById('hitBtn').disabled = false;
+                    document.getElementById('standBtn').disabled = false;
+                    document.getElementById('doubleBtn').disabled = !result.can_double;
+                    document.getElementById('analyzeBtn').disabled = false;
+                    
+                    updateGameStatus('Tu turno. ¿Hit o Stand?');
+                }
+            } catch (error) {
+                console.error('Error starting new hand:', error);
+            }
+        }
+
+        async function hit() {
+            try {
+                const response = await fetch('index.php?action=api', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: 'action=hit'
+                });
+                
+                const result = await response.json();
+                
+                // Actualizar cartas del jugador
+                const playerCardsDiv = document.getElementById('playerCards');
+                const newCard = createCardElement(result.card);
+                playerCardsDiv.appendChild(newCard);
+                
+                document.getElementById('playerTotal').textContent = result.total;
+                
+                if (result.is_bust) {
+                    endHand('¡Te pasaste! Perdiste.');
+                } else {
+                    document.getElementById('doubleBtn').disabled = true;
+                }
+            } catch (error) {
+                console.error('Error hitting:', error);
+            }
+        }
+
+        async function stand() {
+            try {
+                const response = await fetch('index.php?action=api', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: 'action=stand'
+                });
+                
+                const result = await response.json();
+                
+                // Mostrar todas las cartas del dealer
+                displayCards('dealerCards', result.cards);
+                document.getElementById('dealerTotal').textContent = result.total;
+                
+                // Mostrar resultado final
+                let message = '';
+                switch(result.result) {
+                    case 'win':
+                        message = '¡Ganaste!';
+                        break;
+                    case 'loss':
+                        message = 'Perdiste';
+                        break;
+                    case 'draw':
+                        message = 'Empate';
+                        break;
+                    case 'blackjack':
+                        message = '¡Blackjack!';
+                        break;
+                }
+                
+                document.getElementById('balance').textContent = result.balance;
+                endHand(message);
+                updateStats();
+            } catch (error) {
+                console.error('Error standing:', error);
+            }
+        }
+
+        async function doubleDown() {
+            try {
+                const response = await fetch('index.php?action=api', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: 'action=double_down'
+                });
+                
+                const result = await response.json();
+                
+                // Actualizar cartas y totales
+                const playerCardsDiv = document.getElementById('playerCards');
+                const newCard = createCardElement(result.card);
+                playerCardsDiv.appendChild(newCard);
+                
+                document.getElementById('playerTotal').textContent = result.total;
+                
+                if (!result.is_bust) {
+                    // Mostrar cartas del dealer
+                    displayCards('dealerCards', result.cards);
+                    document.getElementById('dealerTotal').textContent = result.dealer_total;
+                }
+                
+                // Mostrar resultado
+                let message = '';
+                switch(result.result) {
+                    case 'win':
+                        message = '¡Doble ganancia!';
+                        break;
+                    case 'loss':
+                        message = 'Doble pérdida';
+                        break;
+                    case 'draw':
+                        message = 'Empate (recuperas apuesta)';
+                        break;
+                    case 'blackjack':
+                        message = '¡Blackjack doble!';
+                        break;
+                }
+                
+                document.getElementById('balance').textContent = result.balance;
+                endHand(message);
+                updateStats();
+            } catch (error) {
+                console.error('Error doubling down:', error);
+            }
+        }
+
+        async function getRecommendation() {
+            try {
+                const response = await fetch('index.php?action=api', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: 'action=get_recommendation'
+                });
+                
+                const result = await response.json();
+                
+                const recDiv = document.getElementById('recommendation');
+                const actionDiv = document.getElementById('recommendedAction');
+                const confidenceDiv = document.getElementById('confidence');
+                
+                // Actualizar recomendación
+                actionDiv.innerHTML = `<strong>${result.recommendation.toUpperCase()}</strong>`;
+                confidenceDiv.innerHTML = `Confianza: ${(result.confidence * 100).toFixed(1)}%`;
+                
+                // Cambiar color según recomendación
+                recDiv.className = 'recommendation ' + result.recommendation;
+                
+                // Actualizar análisis numérico
+                if (result.numeric_analysis) {
+                    document.getElementById('newtonResult').textContent = 
+                        result.numeric_analysis.newton_raphson.toFixed(4);
+                    document.getElementById('interpolationResult').textContent = 
+                        result.numeric_analysis.interpolation.toFixed(4);
+                    document.getElementById('integrationResult').textContent = 
+                        result.numeric_analysis.integration.toFixed(4);
+                }
+                
+                // Actualizar gráfico
+                updateProbabilityChart(result);
+                
+            } catch (error) {
+                console.error('Error getting recommendation:', error);
+            }
+        }
+
+        function displayCards(containerId, cards) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            cards.forEach(card => {
+                container.appendChild(createCardElement(card));
+            });
+        }
+
+        function createCardElement(card) {
+            const cardDiv = document.createElement('div');
+            cardDiv.className = `card ${card.suit}`;
+            cardDiv.innerHTML = `
+                <div>${card.rank}</div>
+                <div>${getSuitSymbol(card.suit)}</div>
+                <div style="transform: rotate(180deg)">${card.rank}</div>
+            `;
+            return cardDiv;
+        }
+
+        function getSuitSymbol(suit) {
+            const symbols = {
+                hearts: '♥',
+                diamonds: '♦',
+                clubs: '♣',
+                spades: '♠'
+            };
+            return symbols[suit] || '?';
+        }
+
+        function endHand(message) {
+            gameState.handInProgress = false;
+            document.getElementById('hitBtn').disabled = true;
+            document.getElementById('standBtn').disabled = true;
+            document.getElementById('doubleBtn').disabled = true;
+            document.getElementById('analyzeBtn').disabled = true;
+            document.getElementById('newHandBtn').disabled = false;
+            
+            updateGameStatus(message);
+        }
+
+        function updateGameStatus(message) {
+            document.getElementById('gameStatus').textContent = message;
+        }
+
+        async function updateStats() {
+            try {
+                const response = await fetch('index.php?action=api', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: 'action=stats'
+                });
+                
+                const stats = await response.json();
+                
+                if (stats.total_hands) {
+                    document.getElementById('handsPlayed').textContent = stats.total_hands;
+                    document.getElementById('wins').textContent = stats.wins;
+                    document.getElementById('winRate').textContent = 
+                        (stats.win_percentage || 0).toFixed(1) + '%';
+                    document.getElementById('totalProfit').textContent = 
+                        ' + (stats.profit_loss || 0);
+                }
+            } catch (error) {
+                console.error('Error updating stats:', error);
+            }
+        }
+
+        function updateProbabilityChart(data) {
+            const ctx = document.getElementById('probabilityChart').getContext('2d');
+            
+            if (chart) {
+                chart.destroy();
+            }
+            
+            const chartData = {
+                labels: ['Newton-Raphson', 'Interpolación', 'Integración'],
+                datasets: [{
+                    label: 'Probabilidad',
+                    data: [
+                        data.numeric_analysis?.newton_raphson || 0,
+                        data.numeric_analysis?.interpolation || 0,
+                        data.numeric_analysis?.integration || 0
+                    ],
+                    backgroundColor: [
+                        'rgba(34, 197, 94, 0.6)',
+                        'rgba(59, 130, 246, 0.6)',
+                        'rgba(245, 158, 11, 0.6)'
+                    ],
+                    borderColor: [
+                        'rgba(34, 197, 94, 1)',
+                        'rgba(59, 130, 246, 1)',
+                        'rgba(245, 158, 11, 1)'
+                    ],
+                    borderWidth: 2
+                }]
+            };
+            
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 1,
+                            ticks: {
+                                color: 'white'
+                            },
+                            grid: {
+                                color: 'rgba(255,255,255,0.1)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: 'white',
+                                maxRotation: 45
+                            },
+                            grid: {
+                                color: 'rgba(255,255,255,0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', function() {
+            updateGameStatus('Haz clic en "Nuevo Juego" para comenzar');
+            
+            // Configurar eventos de teclado
+            document.addEventListener('keydown', function(e) {
+                if (!gameState.handInProgress) return;
+                
+                switch(e.key) {
+                    case 'h':
+                    case 'H':
+                        if (!document.getElementById('hitBtn').disabled) hit();
+                        break;
+                    case 's':
+                    case 'S':
+                        if (!document.getElementById('standBtn').disabled) stand();
+                        break;
+                    case 'd':
+                    case 'D':
+                        if (!document.getElementById('doubleBtn').disabled) doubleDown();
+                        break;
+                    case 'a':
+                    case 'A':
+                        if (!document.getElementById('analyzeBtn').disabled) getRecommendation();
+                        break;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
