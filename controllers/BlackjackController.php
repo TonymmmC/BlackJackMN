@@ -1,5 +1,5 @@
 <?php
-// controllers/BlackjackController.php - Versión completa corregida
+// controllers/BlackjackController.php - Versión corregida
 require_once 'controllers/GameController.php';
 require_once 'utils/NumericMethods.php';
 require_once 'utils/ProbabilityCalculator.php';
@@ -238,6 +238,7 @@ class BlackjackController extends GameController {
         return $probabilities;
     }
     
+    // CORRECCIÓN: Implementar métodos faltantes
     private function calculateHitExpectedValue($playerTotal, $dealerVisible, $remainingCards) {
         return $this->numericMethods->calculateHitExpectedValue($playerTotal, $dealerVisible, $remainingCards);
     }
@@ -280,7 +281,7 @@ class BlackjackController extends GameController {
     }
 }
 
-// controllers/GameController.php - Controlador base
+// controllers/GameController.php - Controlador base corregido
 class GameController {
     protected $db;
     protected $numericMethods;

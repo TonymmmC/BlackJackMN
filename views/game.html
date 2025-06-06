@@ -297,7 +297,7 @@
                 const response = await fetch('index.php?action=api', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    body: 'action=start_game&player_name=' + gameState.playerName
+                    body: 'action=start_game&player_name=' + encodeURIComponent(gameState.playerName)
                 });
                 
                 const result = await response.json();
@@ -541,7 +541,7 @@
             document.getElementById('gameStatus').textContent = message;
         }
 
-        async function updateStats() {
+                async function updateStats() {
             try {
                 const response = await fetch('index.php?action=api', {
                     method: 'POST',
@@ -551,13 +551,13 @@
                 
                 const stats = await response.json();
                 
-                if (stats.total_hands) {
+                if (stats.total_hands !== undefined) {
                     document.getElementById('handsPlayed').textContent = stats.total_hands;
                     document.getElementById('wins').textContent = stats.wins;
                     document.getElementById('winRate').textContent = 
                         (stats.win_percentage || 0).toFixed(1) + '%';
                     document.getElementById('totalProfit').textContent = 
-                        ' + (stats.profit_loss || 0);
+                        '$' + (stats.profit_loss || 0);  // Fixed: Added proper quote and dollar sign
                 }
             } catch (error) {
                 console.error('Error updating stats:', error);

@@ -1,10 +1,62 @@
 <?php
-// utils/NumericMethods.php - Fixed version
+// utils/NumericMethods.php - Implementando métodos faltantes
 class NumericMethods {
     private $db;
     
     public function __construct($database = null) {
         $this->db = $database;
+    }
+
+    /**
+     * Método faltante: calculateHitExpectedValue
+     */
+    public function calculateHitExpectedValue($playerTotal, $dealerVisible, $remainingCards) {
+        $expectedValue = 0;
+        $totalCards = array_sum($remainingCards);
+        
+        if ($totalCards == 0) return -1; // No hay cartas, asumimos pérdida
+        
+        foreach ($remainingCards as $cardValue => $count) {
+            if ($count <= 0) continue;
+            
+            $probability = $count / $totalCards;
+            $newTotal = $playerTotal + $cardValue;
+            
+            if ($newTotal > 21) {
+                $expectedValue += $probability * (-1); // Bust = -1
+            } else {
+                // Valor de pararse con el nuevo total
+                $expectedValue += $probability * $this->calculateStandExpectedValue($newTotal, $dealerVisible);
+            }
+        }
+        
+        return $expectedValue;
+    }
+    
+    /**
+     * Método faltante: calculateStandExpectedValue
+     */
+    public function calculateStandExpectedValue($playerTotal, $dealerVisible) {
+        // Probabilidades precalculadas del dealer basadas en carta visible
+        $dealerBustProb = $this->getDealerBustProbability($dealerVisible);
+        $dealerTotals = $this->getDealerTotalProbabilities($dealerVisible);
+        
+        $expectedValue = 0;
+        
+        // Si dealer se pasa
+        $expectedValue += $dealerBustProb * 1;
+        
+        // Si dealer termina con total específico
+        foreach ($dealerTotals as $dealerTotal => $probability) {
+            if ($playerTotal > $dealerTotal) {
+                $expectedValue += $probability * 1; // Win
+            } elseif ($playerTotal < $dealerTotal) {
+                $expectedValue += $probability * (-1); // Loss
+            }
+            // Draw = 0, no afecta al valor esperado
+        }
+        
+        return $expectedValue;
     }
 
     /**
@@ -202,52 +254,6 @@ class NumericMethods {
         $f1 = $this->expectedValueDifference($prob + $epsilon, $playerTotal, $dealerVisible, $remainingCards);
         $f2 = $this->expectedValueDifference($prob - $epsilon, $playerTotal, $dealerVisible, $remainingCards);
         return ($f1 - $f2) / (2 * $epsilon);
-    }
-    
-    private function calculateHitExpectedValue($playerTotal, $dealerVisible, $remainingCards) {
-        $expectedValue = 0;
-        $totalCards = array_sum($remainingCards);
-        
-        if ($totalCards == 0) return -1; // No hay cartas, asumimos pérdida
-        
-        foreach ($remainingCards as $cardValue => $count) {
-            if ($count <= 0) continue;
-            
-            $probability = $count / $totalCards;
-            $newTotal = $playerTotal + $cardValue;
-            
-            if ($newTotal > 21) {
-                $expectedValue += $probability * (-1); // Bust = -1
-            } else {
-                // Valor de pararse con el nuevo total
-                $expectedValue += $probability * $this->calculateStandExpectedValue($newTotal, $dealerVisible);
-            }
-        }
-        
-        return $expectedValue;
-    }
-    
-    private function calculateStandExpectedValue($playerTotal, $dealerVisible) {
-        // Probabilidades precalculadas del dealer basadas en carta visible
-        $dealerBustProb = $this->getDealerBustProbability($dealerVisible);
-        $dealerTotals = $this->getDealerTotalProbabilities($dealerVisible);
-        
-        $expectedValue = 0;
-        
-        // Si dealer se pasa
-        $expectedValue += $dealerBustProb * 1;
-        
-        // Si dealer termina con total específico
-        foreach ($dealerTotals as $dealerTotal => $probability) {
-            if ($playerTotal > $dealerTotal) {
-                $expectedValue += $probability * 1; // Win
-            } elseif ($playerTotal < $dealerTotal) {
-                $expectedValue += $probability * (-1); // Loss
-            }
-            // Draw = 0, no afecta al valor esperado
-        }
-        
-        return $expectedValue;
     }
     
     private function getBasicStrategyProbability($playerTotal, $dealerVisible) {
