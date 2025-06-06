@@ -32,7 +32,7 @@
 
         .game-area {
             display: grid;
-            grid-template-columns: 1fr 300px;
+            grid-template-columns: 1fr 350px;
             gap: 20px;
             margin-bottom: 30px;
         }
@@ -53,6 +53,8 @@
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
+            justify-content: center;
+            margin: 15px 0;
         }
 
         .card {
@@ -67,16 +69,27 @@
             padding: 5px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
             font-weight: bold;
+            font-size: 12px;
+            transition: transform 0.3s;
+        }
+
+        .card:hover {
+            transform: scale(1.05);
         }
 
         .card.hearts, .card.diamonds {
             color: #dc2626;
         }
 
+        .card.clubs, .card.spades {
+            color: #1f2937;
+        }
+
         .sidebar {
             background: rgba(255,255,255,0.1);
             border-radius: 15px;
             padding: 20px;
+            backdrop-filter: blur(10px);
         }
 
         .controls {
@@ -84,6 +97,7 @@
             gap: 10px;
             margin: 20px 0;
             flex-wrap: wrap;
+            justify-content: center;
         }
 
         button {
@@ -95,17 +109,20 @@
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s;
+            font-size: 14px;
         }
 
-        button:hover {
+        button:hover:not(:disabled) {
             background: #047857;
             transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4);
         }
 
         button:disabled {
             background: #6b7280;
             cursor: not-allowed;
             transform: none;
+            opacity: 0.5;
         }
 
         .stats {
@@ -127,6 +144,7 @@
             border-radius: 10px;
             padding: 15px;
             margin: 15px 0;
+            transition: all 0.3s;
         }
 
         .recommendation.hit {
@@ -139,6 +157,11 @@
             background: rgba(239, 68, 68, 0.2);
         }
 
+        .recommendation.double {
+            border-color: #8b5cf6;
+            background: rgba(139, 92, 246, 0.2);
+        }
+
         .numeric-analysis {
             margin-top: 20px;
             font-size: 12px;
@@ -148,6 +171,9 @@
             display: flex;
             justify-content: space-between;
             margin: 5px 0;
+            padding: 4px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 3px;
         }
 
         #probabilityChart {
@@ -158,29 +184,86 @@
         }
 
         .bet-input {
-            margin: 10px 0;
+            margin: 15px 0;
+            text-align: center;
         }
 
         input[type="number"] {
-            padding: 8px;
+            padding: 10px;
             border-radius: 5px;
-            border: none;
+            border: 2px solid #374151;
             width: 100%;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 16px;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #059669;
         }
 
         .game-info {
             text-align: center;
             margin: 20px 0;
+            padding: 15px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
         }
 
         .balance {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: bold;
             color: #fbbf24;
+            margin: 10px 0;
+        }
+
+        .totals {
+            font-size: 18px;
+            margin: 10px 0;
+            font-weight: bold;
         }
 
         .hidden {
             display: none;
+        }
+
+        .animation {
+            animation: fadeInScale 0.5s ease-out;
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .game-status {
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .game-status.win {
+            background: rgba(34, 197, 94, 0.3);
+            border: 2px solid #22c55e;
+        }
+
+        .game-status.loss {
+            background: rgba(239, 68, 68, 0.3);
+            border: 2px solid #ef4444;
+        }
+
+        .game-status.draw {
+            background: rgba(156, 163, 175, 0.3);
+            border: 2px solid #9ca3af;
         }
 
         @media (max-width: 768px) {
@@ -188,8 +271,14 @@
                 grid-template-columns: 1fr;
             }
             
-            .cards {
+            .controls {
                 justify-content: center;
+            }
+
+            .card {
+                width: 50px;
+                height: 75px;
+                font-size: 10px;
             }
         }
     </style>
@@ -206,18 +295,18 @@
                 <div class="hand" id="dealerHand">
                     <h3>🏠 Dealer</h3>
                     <div class="cards" id="dealerCards"></div>
-                    <div>Total: <span id="dealerTotal">-</span></div>
+                    <div class="totals">Total: <span id="dealerTotal">-</span></div>
                 </div>
 
                 <div class="game-info">
                     <div class="balance">Balance: $<span id="balance">1000</span></div>
-                    <div id="gameStatus"></div>
+                    <div id="gameStatus" class="game-status">Haz clic en "Nuevo Juego" para comenzar</div>
                 </div>
 
                 <div class="hand" id="playerHand">
                     <h3>👤 Jugador</h3>
                     <div class="cards" id="playerCards"></div>
-                    <div>Total: <span id="playerTotal">-</span></div>
+                    <div class="totals">Total: <span id="playerTotal">-</span></div>
                 </div>
 
                 <div class="controls">
@@ -239,7 +328,7 @@
                     <h4>🧮 Recomendación</h4>
                     <div id="recommendedAction">Haz clic en "Analizar" para obtener recomendación</div>
                     <div id="confidence"></div>
-                    <button onclick="getRecommendation()" id="analyzeBtn">Analizar</button>
+                    <button onclick="getRecommendation()" id="analyzeBtn" disabled>Analizar</button>
                 </div>
 
                 <div class="stats">
@@ -276,232 +365,476 @@
                         <span>Integración:</span>
                         <span id="integrationResult">-</span>
                     </div>
+                    <div class="analysis-row">
+                        <span>Monte Carlo:</span>
+                        <span id="monteCarloResult">-</span>
+                    </div>
                 </div>
 
-                <canvas id="probabilityChart" width="250" height="150"></canvas>
+                <canvas id="probabilityChart" width="300" height="200"></canvas>
             </div>
         </div>
     </div>
 
     <script>
+        // Estado del juego
         let gameState = {
             gameStarted: false,
             handInProgress: false,
-            playerName: 'Player'
+            playerCards: [],
+            dealerCards: [],
+            playerTotal: 0,
+            dealerTotal: 0,
+            balance: 1000,
+            currentBet: 0,
+            deck: [],
+            stats: {
+                handsPlayed: 0,
+                wins: 0,
+                losses: 0,
+                draws: 0,
+                totalProfit: 0
+            }
         };
 
         let chart;
 
-        async function startNewGame() {
-            try {
-                const response = await fetch('index.php?action=api', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    body: 'action=start_game&player_name=' + encodeURIComponent(gameState.playerName)
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    gameState.gameStarted = true;
-                    document.getElementById('startBtn').disabled = true;
-                    document.getElementById('newHandBtn').disabled = false;
-                    updateGameStatus('Juego iniciado. Haz una apuesta para comenzar.');
-                }
-            } catch (error) {
-                console.error('Error starting game:', error);
+        // Clase para manejo de cartas
+        class Card {
+            constructor(suit, rank, value, altValue = null) {
+                this.suit = suit;
+                this.rank = rank;
+                this.value = value;
+                this.altValue = altValue;
+            }
+
+            isAce() {
+                return this.rank === 'A';
+            }
+
+            getValue(useAlt = false) {
+                return (useAlt && this.altValue) ? this.altValue : this.value;
             }
         }
 
-        async function newHand() {
-            const betAmount = document.getElementById('betAmount').value;
+        // Inicializar mazo
+        function initializeDeck() {
+            const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
+            const ranks = [
+                ['A', 1, 11], ['2', 2], ['3', 3], ['4', 4], ['5', 5], ['6', 6],
+                ['7', 7], ['8', 8], ['9', 9], ['10', 10], ['J', 10], ['Q', 10], ['K', 10]
+            ];
+
+            gameState.deck = [];
+            for (let suit of suits) {
+                for (let rank of ranks) {
+                    gameState.deck.push(new Card(suit, rank[0], rank[1], rank[2] || null));
+                }
+            }
             
-            try {
-                const response = await fetch('index.php?action=api', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    body: `action=new_hand&bet_amount=${betAmount}`
-                });
-                
-                const result = await response.json();
-                if (result.player_cards) {
-                    gameState.handInProgress = true;
-                    displayCards('playerCards', result.player_cards);
-                    displayCards('dealerCards', [result.dealer_visible]);
-                    document.getElementById('playerTotal').textContent = result.player_total;
-                    document.getElementById('dealerTotal').textContent = result.dealer_visible.value;
-                    
-                    document.getElementById('newHandBtn').disabled = true;
-                    document.getElementById('hitBtn').disabled = false;
-                    document.getElementById('standBtn').disabled = false;
-                    document.getElementById('doubleBtn').disabled = !result.can_double;
-                    document.getElementById('analyzeBtn').disabled = false;
-                    
-                    updateGameStatus('Tu turno. ¿Hit o Stand?');
-                }
-            } catch (error) {
-                console.error('Error starting new hand:', error);
+            // Mezclar mazo
+            shuffleDeck();
+        }
+
+        function shuffleDeck() {
+            for (let i = gameState.deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [gameState.deck[i], gameState.deck[j]] = [gameState.deck[j], gameState.deck[i]];
             }
         }
 
-        async function hit() {
-            try {
-                const response = await fetch('index.php?action=api', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    body: 'action=hit'
-                });
-                
-                const result = await response.json();
-                
-                // Actualizar cartas del jugador
-                const playerCardsDiv = document.getElementById('playerCards');
-                const newCard = createCardElement(result.card);
-                playerCardsDiv.appendChild(newCard);
-                
-                document.getElementById('playerTotal').textContent = result.total;
-                
-                if (result.is_bust) {
-                    endHand('¡Te pasaste! Perdiste.');
+        function dealCard() {
+            if (gameState.deck.length === 0) {
+                initializeDeck();
+            }
+            return gameState.deck.pop();
+        }
+
+        // Calcular total de mano considerando ases
+        function calculateHandTotal(cards) {
+            let total = 0;
+            let aces = 0;
+
+            for (let card of cards) {
+                if (card.isAce()) {
+                    aces++;
+                    total += 11;
                 } else {
-                    document.getElementById('doubleBtn').disabled = true;
+                    total += card.getValue();
                 }
-            } catch (error) {
-                console.error('Error hitting:', error);
+            }
+
+            // Ajustar ases
+            while (total > 21 && aces > 0) {
+                total -= 10;
+                aces--;
+            }
+
+            return total;
+        }
+
+        // Funciones principales del juego
+        function startNewGame() {
+            initializeDeck();
+            gameState.gameStarted = true;
+            gameState.balance = 1000;
+            gameState.stats = {
+                handsPlayed: 0,
+                wins: 0,
+                losses: 0,
+                draws: 0,
+                totalProfit: 0
+            };
+
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('newHandBtn').disabled = false;
+            updateDisplay();
+            updateGameStatus('Juego iniciado. Haz una apuesta para comenzar.', '');
+        }
+
+        function newHand() {
+            const betAmount = parseInt(document.getElementById('betAmount').value);
+            
+            if (betAmount > gameState.balance) {
+                updateGameStatus('Fondos insuficientes para esta apuesta.', 'loss');
+                return;
+            }
+
+            // Configurar nueva mano
+            gameState.handInProgress = true;
+            gameState.currentBet = betAmount;
+            gameState.balance -= betAmount;
+            gameState.playerCards = [];
+            gameState.dealerCards = [];
+
+            // Repartir cartas iniciales
+            gameState.playerCards.push(dealCard());
+            gameState.dealerCards.push(dealCard());
+            gameState.playerCards.push(dealCard());
+            gameState.dealerCards.push(dealCard());
+
+            gameState.playerTotal = calculateHandTotal(gameState.playerCards);
+            gameState.dealerTotal = gameState.dealerCards[0].getValue(); // Solo carta visible
+
+            // Actualizar UI
+            displayCards('playerCards', gameState.playerCards);
+            displayCards('dealerCards', [gameState.dealerCards[0]]); // Solo primera carta
+            
+            document.getElementById('newHandBtn').disabled = true;
+            document.getElementById('hitBtn').disabled = false;
+            document.getElementById('standBtn').disabled = false;
+            document.getElementById('doubleBtn').disabled = false;
+            document.getElementById('analyzeBtn').disabled = false;
+
+            updateDisplay();
+            
+            // Verificar blackjack
+            if (gameState.playerTotal === 21) {
+                setTimeout(() => {
+                    stand(); // Auto-stand en blackjack
+                }, 1000);
+                updateGameStatus('¡Blackjack! Evaluando...', 'win');
+            } else {
+                updateGameStatus('Tu turno. ¿Hit o Stand?', '');
             }
         }
 
-        async function stand() {
-            try {
-                const response = await fetch('index.php?action=api', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    body: 'action=stand'
-                });
-                
-                const result = await response.json();
-                
-                // Mostrar todas las cartas del dealer
-                displayCards('dealerCards', result.cards);
-                document.getElementById('dealerTotal').textContent = result.total;
-                
-                // Mostrar resultado final
-                let message = '';
-                switch(result.result) {
-                    case 'win':
-                        message = '¡Ganaste!';
-                        break;
-                    case 'loss':
-                        message = 'Perdiste';
-                        break;
-                    case 'draw':
-                        message = 'Empate';
-                        break;
-                    case 'blackjack':
-                        message = '¡Blackjack!';
-                        break;
-                }
-                
-                document.getElementById('balance').textContent = result.balance;
-                endHand(message);
-                updateStats();
-            } catch (error) {
-                console.error('Error standing:', error);
+        function hit() {
+            const newCard = dealCard();
+            gameState.playerCards.push(newCard);
+            gameState.playerTotal = calculateHandTotal(gameState.playerCards);
+
+            // Animación de nueva carta
+            const newCardElement = createCardElement(newCard);
+            newCardElement.classList.add('animation');
+            document.getElementById('playerCards').appendChild(newCardElement);
+
+            document.getElementById('doubleBtn').disabled = true;
+            updateDisplay();
+
+            if (gameState.playerTotal > 21) {
+                endHand('loss', '¡Te pasaste! Perdiste.');
+            } else if (gameState.playerTotal === 21) {
+                setTimeout(() => {
+                    stand();
+                }, 500);
             }
         }
 
-        async function doubleDown() {
-            try {
-                const response = await fetch('index.php?action=api', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    body: 'action=double_down'
-                });
+        function stand() {
+            // Mostrar carta oculta del dealer
+            displayCards('dealerCards', gameState.dealerCards);
+            gameState.dealerTotal = calculateHandTotal(gameState.dealerCards);
+
+            // Dealer juega
+            while (gameState.dealerTotal < 17) {
+                const newCard = dealCard();
+                gameState.dealerCards.push(newCard);
+                gameState.dealerTotal = calculateHandTotal(gameState.dealerCards);
                 
-                const result = await response.json();
-                
-                // Actualizar cartas y totales
-                const playerCardsDiv = document.getElementById('playerCards');
-                const newCard = createCardElement(result.card);
-                playerCardsDiv.appendChild(newCard);
-                
-                document.getElementById('playerTotal').textContent = result.total;
-                
-                if (!result.is_bust) {
-                    // Mostrar cartas del dealer
-                    displayCards('dealerCards', result.cards);
-                    document.getElementById('dealerTotal').textContent = result.dealer_total;
-                }
-                
-                // Mostrar resultado
-                let message = '';
-                switch(result.result) {
-                    case 'win':
-                        message = '¡Doble ganancia!';
-                        break;
-                    case 'loss':
-                        message = 'Doble pérdida';
-                        break;
-                    case 'draw':
-                        message = 'Empate (recuperas apuesta)';
-                        break;
-                    case 'blackjack':
-                        message = '¡Blackjack doble!';
-                        break;
-                }
-                
-                document.getElementById('balance').textContent = result.balance;
-                endHand(message);
-                updateStats();
-            } catch (error) {
-                console.error('Error doubling down:', error);
+                // Mostrar nuevas cartas del dealer
+                setTimeout(() => {
+                    displayCards('dealerCards', gameState.dealerCards);
+                    updateDisplay();
+                }, 500);
+            }
+
+            setTimeout(() => {
+                evaluateHand();
+            }, 1000);
+        }
+
+        function doubleDown() {
+            if (gameState.balance < gameState.currentBet) {
+                updateGameStatus('Fondos insuficientes para doblar.', 'loss');
+                return;
+            }
+
+            gameState.balance -= gameState.currentBet;
+            gameState.currentBet *= 2;
+
+            // Hit obligatorio
+            hit();
+
+            // Si no se pasó, hacer stand automático
+            if (gameState.playerTotal <= 21) {
+                setTimeout(() => {
+                    stand();
+                }, 1000);
             }
         }
 
-        async function getRecommendation() {
-            try {
-                const response = await fetch('index.php?action=api', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    body: 'action=get_recommendation'
-                });
-                
-                const result = await response.json();
-                
-                const recDiv = document.getElementById('recommendation');
-                const actionDiv = document.getElementById('recommendedAction');
-                const confidenceDiv = document.getElementById('confidence');
-                
-                // Actualizar recomendación
-                actionDiv.innerHTML = `<strong>${result.recommendation.toUpperCase()}</strong>`;
-                confidenceDiv.innerHTML = `Confianza: ${(result.confidence * 100).toFixed(1)}%`;
-                
-                // Cambiar color según recomendación
-                recDiv.className = 'recommendation ' + result.recommendation;
-                
-                // Actualizar análisis numérico
-                if (result.numeric_analysis) {
-                    document.getElementById('newtonResult').textContent = 
-                        result.numeric_analysis.newton_raphson.toFixed(4);
-                    document.getElementById('interpolationResult').textContent = 
-                        result.numeric_analysis.interpolation.toFixed(4);
-                    document.getElementById('integrationResult').textContent = 
-                        result.numeric_analysis.integration.toFixed(4);
-                }
-                
-                // Actualizar gráfico
-                updateProbabilityChart(result);
-                
-            } catch (error) {
-                console.error('Error getting recommendation:', error);
+        function evaluateHand() {
+            const playerTotal = gameState.playerTotal;
+            const dealerTotal = gameState.dealerTotal;
+            let result = '';
+            let multiplier = 0;
+            let message = '';
+
+            if (playerTotal > 21) {
+                result = 'loss';
+                message = '¡Te pasaste! Perdiste.';
+            } else if (dealerTotal > 21) {
+                result = 'win';
+                multiplier = 1;
+                message = '¡El dealer se pasó! Ganaste.';
+            } else if (playerTotal === 21 && gameState.playerCards.length === 2 && dealerTotal !== 21) {
+                result = 'blackjack';
+                multiplier = 1.5;
+                message = '¡Blackjack! Ganaste con bonificación.';
+            } else if (dealerTotal === 21 && gameState.dealerCards.length === 2 && playerTotal !== 21) {
+                result = 'loss';
+                message = 'El dealer tiene blackjack. Perdiste.';
+            } else if (playerTotal > dealerTotal) {
+                result = 'win';
+                multiplier = 1;
+                message = '¡Ganaste con mayor puntuación!';
+            } else if (playerTotal < dealerTotal) {
+                result = 'loss';
+                message = 'El dealer ganó con mayor puntuación.';
+            } else {
+                result = 'draw';
+                gameState.balance += gameState.currentBet; // Recuperar apuesta
+                message = 'Empate. Recuperas tu apuesta.';
             }
+
+            if (result === 'win' || result === 'blackjack') {
+                const winnings = gameState.currentBet * (1 + multiplier);
+                gameState.balance += winnings;
+                gameState.stats.wins++;
+                gameState.stats.totalProfit += (winnings - gameState.currentBet);
+            } else if (result === 'loss') {
+                gameState.stats.losses++;
+                gameState.stats.totalProfit -= gameState.currentBet;
+            } else {
+                gameState.stats.draws++;
+            }
+
+            endHand(result, message);
         }
 
+        function endHand(result, message) {
+            gameState.handInProgress = false;
+            gameState.stats.handsPlayed++;
+            
+            document.getElementById('hitBtn').disabled = true;
+            document.getElementById('standBtn').disabled = true;
+            document.getElementById('doubleBtn').disabled = true;
+            document.getElementById('analyzeBtn').disabled = true;
+            document.getElementById('newHandBtn').disabled = false;
+
+            updateGameStatus(message, result);
+            updateDisplay();
+            updateStats();
+
+            // Reset para próxima mano
+            gameState.currentBet = 0;
+        }
+
+        // Funciones de análisis numérico
+        function getRecommendation() {
+            const analysis = performNumericAnalysis();
+            
+            const recDiv = document.getElementById('recommendation');
+            const actionDiv = document.getElementById('recommendedAction');
+            const confidenceDiv = document.getElementById('confidence');
+
+            actionDiv.innerHTML = `<strong>${analysis.recommendation.toUpperCase()}</strong>`;
+            confidenceDiv.innerHTML = `Confianza: ${(analysis.confidence * 100).toFixed(1)}%`;
+
+            recDiv.className = 'recommendation ' + analysis.recommendation;
+
+            // Actualizar análisis numérico
+            document.getElementById('newtonResult').textContent = analysis.newton_raphson.toFixed(4);
+            document.getElementById('interpolationResult').textContent = analysis.interpolation.toFixed(4);
+            document.getElementById('integrationResult').textContent = analysis.integration.toFixed(4);
+            document.getElementById('monteCarloResult').textContent = analysis.monte_carlo.toFixed(4);
+
+            updateProbabilityChart(analysis);
+        }
+
+        function performNumericAnalysis() {
+            const playerTotal = gameState.playerTotal;
+            const dealerVisible = gameState.dealerCards[0].getValue();
+
+            // Newton-Raphson para probabilidad óptima
+            const newtonResult = newtonRaphsonOptimalProbability(playerTotal, dealerVisible);
+            
+            // Interpolación de Newton
+            const interpolationResult = newtonInterpolation(playerTotal, dealerVisible);
+            
+            // Integración trapezoidal
+            const integrationResult = trapezoidalIntegration(playerTotal, dealerVisible);
+            
+            // Monte Carlo
+            const monteCarloResult = monteCarloSimulation(playerTotal, dealerVisible, 1000);
+
+            // Determinar recomendación final
+            const hitProbability = (newtonResult + interpolationResult + monteCarloResult) / 3;
+            const recommendation = hitProbability > 0.5 ? 'hit' : 'stand';
+            const confidence = Math.abs(hitProbability - 0.5) * 2;
+
+            return {
+                recommendation,
+                confidence,
+                newton_raphson: newtonResult,
+                interpolation: interpolationResult,
+                integration: integrationResult,
+                monte_carlo: monteCarloResult
+            };
+        }
+
+        // Implementación de métodos numéricos
+        function newtonRaphsonOptimalProbability(playerTotal, dealerVisible) {
+            // Simplificado: probabilidad basada en estrategia básica
+            if (playerTotal <= 11) return 0.9;
+            if (playerTotal >= 17) return 0.1;
+            
+            const bustProbability = getBustProbability(playerTotal);
+            const dealerBustProb = getDealerBustProbability(dealerVisible);
+            
+            return Math.max(0.1, Math.min(0.9, dealerBustProb - bustProbability + 0.5));
+        }
+
+        function newtonInterpolation(playerTotal, dealerVisible) {
+            // Puntos conocidos de probabilidad de éxito
+            const knownPoints = [
+                {x: 12, y: 0.31}, {x: 15, y: 0.38}, {x: 18, y: 0.67}, {x: 20, y: 0.85}
+            ];
+            
+            // Interpolación lineal simple
+            for (let i = 0; i < knownPoints.length - 1; i++) {
+                if (playerTotal >= knownPoints[i].x && playerTotal <= knownPoints[i + 1].x) {
+                    const t = (playerTotal - knownPoints[i].x) / (knownPoints[i + 1].x - knownPoints[i].x);
+                    return knownPoints[i].y + t * (knownPoints[i + 1].y - knownPoints[i].y);
+                }
+            }
+            
+            return playerTotal <= 12 ? 0.31 : 0.85;
+        }
+
+        function trapezoidalIntegration(playerTotal, dealerVisible) {
+            // Integrar función de probabilidad acumulada
+            const a = 0, b = 1;
+            const n = 100;
+            const h = (b - a) / n;
+            
+            let sum = probabilityDensity(a, playerTotal) + probabilityDensity(b, playerTotal);
+            
+            for (let i = 1; i < n; i++) {
+                const x = a + i * h;
+                sum += 2 * probabilityDensity(x, playerTotal);
+            }
+            
+            return (h / 2) * sum;
+        }
+
+        function monteCarloSimulation(playerTotal, dealerVisible, iterations) {
+            let wins = 0;
+            
+            for (let i = 0; i < iterations; i++) {
+                const simResult = simulateHand(playerTotal, dealerVisible);
+                if (simResult) wins++;
+            }
+            
+            return wins / iterations;
+        }
+
+        // Funciones auxiliares
+        function getBustProbability(playerTotal) {
+            const cardsLeft = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10]; // A-K
+            let bustCards = 0;
+            
+            for (let card of cardsLeft) {
+                if (playerTotal + card > 21) bustCards++;
+            }
+            
+            return bustCards / cardsLeft.length;
+        }
+
+        function getDealerBustProbability(dealerVisible) {
+            const bustProbs = {
+                2: 0.35, 3: 0.37, 4: 0.40, 5: 0.42, 6: 0.42,
+                7: 0.26, 8: 0.24, 9: 0.23, 10: 0.21, 11: 0.11
+            };
+            return bustProbs[dealerVisible] || 0.25;
+        }
+
+        function probabilityDensity(x, playerTotal) {
+            // Función de densidad simplificada
+            const optimal = playerTotal >= 17 ? 0.2 : 0.8;
+            const variance = 0.1;
+            return Math.exp(-Math.pow(x - optimal, 2) / (2 * variance));
+        }
+
+        function simulateHand(playerTotal, dealerVisible) {
+            // Simular hit
+            const newCard = Math.floor(Math.random() * 10) + 1;
+            const newTotal = playerTotal + newCard;
+            
+            if (newTotal > 21) return false;
+            
+            // Simular dealer
+            let dealerTotal = dealerVisible + Math.floor(Math.random() * 10) + 1;
+            while (dealerTotal < 17) {
+                dealerTotal += Math.floor(Math.random() * 10) + 1;
+            }
+            
+            if (dealerTotal > 21) return true;
+            return newTotal > dealerTotal;
+        }
+
+        // Funciones de UI
         function displayCards(containerId, cards) {
             const container = document.getElementById(containerId);
             container.innerHTML = '';
             
-            cards.forEach(card => {
-                container.appendChild(createCardElement(card));
+            cards.forEach((card, index) => {
+                const cardElement = createCardElement(card);
+                if (index === cards.length - 1) {
+                    cardElement.classList.add('animation');
+                }
+                container.appendChild(cardElement);
             });
         }
 
@@ -510,7 +843,7 @@
             cardDiv.className = `card ${card.suit}`;
             cardDiv.innerHTML = `
                 <div>${card.rank}</div>
-                <div>${getSuitSymbol(card.suit)}</div>
+                <div style="text-align: center;">${getSuitSymbol(card.suit)}</div>
                 <div style="transform: rotate(180deg)">${card.rank}</div>
             `;
             return cardDiv;
@@ -526,42 +859,26 @@
             return symbols[suit] || '?';
         }
 
-        function endHand(message) {
-            gameState.handInProgress = false;
-            document.getElementById('hitBtn').disabled = true;
-            document.getElementById('standBtn').disabled = true;
-            document.getElementById('doubleBtn').disabled = true;
-            document.getElementById('analyzeBtn').disabled = true;
-            document.getElementById('newHandBtn').disabled = false;
-            
-            updateGameStatus(message);
+        function updateDisplay() {
+            document.getElementById('balance').textContent = gameState.balance;
+            document.getElementById('playerTotal').textContent = gameState.playerTotal || '-';
+            document.getElementById('dealerTotal').textContent = gameState.handInProgress ? 
+                gameState.dealerCards[0].getValue() : (gameState.dealerTotal || '-');
         }
 
-        function updateGameStatus(message) {
-            document.getElementById('gameStatus').textContent = message;
+        function updateGameStatus(message, type) {
+            const statusDiv = document.getElementById('gameStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = `game-status ${type}`;
         }
 
-                async function updateStats() {
-            try {
-                const response = await fetch('index.php?action=api', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    body: 'action=stats'
-                });
-                
-                const stats = await response.json();
-                
-                if (stats.total_hands !== undefined) {
-                    document.getElementById('handsPlayed').textContent = stats.total_hands;
-                    document.getElementById('wins').textContent = stats.wins;
-                    document.getElementById('winRate').textContent = 
-                        (stats.win_percentage || 0).toFixed(1) + '%';
-                    document.getElementById('totalProfit').textContent = 
-                        '$' + (stats.profit_loss || 0);  // Fixed: Added proper quote and dollar sign
-                }
-            } catch (error) {
-                console.error('Error updating stats:', error);
-            }
+        function updateStats() {
+            document.getElementById('handsPlayed').textContent = gameState.stats.handsPlayed;
+            document.getElementById('wins').textContent = gameState.stats.wins;
+            document.getElementById('winRate').textContent = 
+                gameState.stats.handsPlayed > 0 ? 
+                ((gameState.stats.wins / gameState.stats.handsPlayed) * 100).toFixed(1) + '%' : '0%';
+            document.getElementById('totalProfit').textContent = ' + gameState.stats.totalProfit;
         }
 
         function updateProbabilityChart(data) {
@@ -572,23 +889,26 @@
             }
             
             const chartData = {
-                labels: ['Newton-Raphson', 'Interpolación', 'Integración'],
+                labels: ['Newton-Raphson', 'Interpolación', 'Integración', 'Monte Carlo'],
                 datasets: [{
-                    label: 'Probabilidad',
+                    label: 'Probabilidad de Éxito',
                     data: [
-                        data.numeric_analysis?.newton_raphson || 0,
-                        data.numeric_analysis?.interpolation || 0,
-                        data.numeric_analysis?.integration || 0
+                        data.newton_raphson,
+                        data.interpolation,
+                        data.integration,
+                        data.monte_carlo
                     ],
                     backgroundColor: [
-                        'rgba(34, 197, 94, 0.6)',
-                        'rgba(59, 130, 246, 0.6)',
-                        'rgba(245, 158, 11, 0.6)'
+                        'rgba(34, 197, 94, 0.8)',
+                        'rgba(59, 130, 246, 0.8)',
+                        'rgba(245, 158, 11, 0.8)',
+                        'rgba(168, 85, 247, 0.8)'
                     ],
                     borderColor: [
                         'rgba(34, 197, 94, 1)',
                         'rgba(59, 130, 246, 1)',
-                        'rgba(245, 158, 11, 1)'
+                        'rgba(245, 158, 11, 1)',
+                        'rgba(168, 85, 247, 1)'
                     ],
                     borderWidth: 2
                 }]
@@ -599,9 +919,15 @@
                 data: chartData,
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
                     plugins: {
                         legend: {
                             display: false
+                        },
+                        title: {
+                            display: true,
+                            text: 'Análisis Comparativo',
+                            color: 'white'
                         }
                     },
                     scales: {
@@ -609,7 +935,10 @@
                             beginAtZero: true,
                             max: 1,
                             ticks: {
-                                color: 'white'
+                                color: 'white',
+                                callback: function(value) {
+                                    return (value * 100).toFixed(0) + '%';
+                                }
                             },
                             grid: {
                                 color: 'rgba(255,255,255,0.1)'
@@ -618,45 +947,352 @@
                         x: {
                             ticks: {
                                 color: 'white',
-                                maxRotation: 45
+                                maxRotation: 45,
+                                font: {
+                                    size: 10
+                                }
                             },
                             grid: {
                                 color: 'rgba(255,255,255,0.1)'
                             }
                         }
+                    },
+                    animation: {
+                        duration: 1000,
+                        easing: 'easeInOutQuart'
                     }
                 }
             });
         }
 
-        // Inicialización
-        document.addEventListener('DOMContentLoaded', function() {
-            updateGameStatus('Haz clic en "Nuevo Juego" para comenzar');
+        // Eventos de teclado
+        document.addEventListener('keydown', function(e) {
+            if (!gameState.handInProgress) return;
             
-            // Configurar eventos de teclado
-            document.addEventListener('keydown', function(e) {
-                if (!gameState.handInProgress) return;
+            switch(e.key.toLowerCase()) {
+                case 'h':
+                    if (!document.getElementById('hitBtn').disabled) hit();
+                    break;
+                case 's':
+                    if (!document.getElementById('standBtn').disabled) stand();
+                    break;
+                case 'd':
+                    if (!document.getElementById('doubleBtn').disabled) doubleDown();
+                    break;
+                case 'a':
+                    if (!document.getElementById('analyzeBtn').disabled) getRecommendation();
+                    break;
+                case 'n':
+                    if (!document.getElementById('newHandBtn').disabled) newHand();
+                    break;
+            }
+        });
+
+        // Auto-analizar cuando comience una nueva mano
+        function autoAnalyze() {
+            if (gameState.handInProgress && gameState.playerTotal < 21) {
+                setTimeout(() => {
+                    getRecommendation();
+                }, 1000);
+            }
+        }
+
+        // Funciones adicionales de métodos numéricos avanzados
+
+        // Método de Bisección para encontrar probabilidad óptima
+        function bisectionMethod(playerTotal, dealerVisible, tolerance = 0.0001) {
+            let a = 0, b = 1;
+            let iterations = 0;
+            const maxIterations = 100;
+
+            while ((b - a) / 2 > tolerance && iterations < maxIterations) {
+                const c = (a + b) / 2;
+                const fc = expectedValueFunction(c, playerTotal, dealerVisible);
                 
-                switch(e.key) {
-                    case 'h':
-                    case 'H':
-                        if (!document.getElementById('hitBtn').disabled) hit();
-                        break;
-                    case 's':
-                    case 'S':
-                        if (!document.getElementById('standBtn').disabled) stand();
-                        break;
-                    case 'd':
-                    case 'D':
-                        if (!document.getElementById('doubleBtn').disabled) doubleDown();
-                        break;
-                    case 'a':
-                    case 'A':
-                        if (!document.getElementById('analyzeBtn').disabled) getRecommendation();
-                        break;
+                if (fc === 0) break;
+                
+                if (expectedValueFunction(a, playerTotal, dealerVisible) * fc < 0) {
+                    b = c;
+                } else {
+                    a = c;
                 }
+                iterations++;
+            }
+            
+            return (a + b) / 2;
+        }
+
+        // Función de valor esperado para métodos numéricos
+        function expectedValueFunction(prob, playerTotal, dealerVisible) {
+            const hitExpected = calculateHitExpectedValue(playerTotal, dealerVisible);
+            const standExpected = calculateStandExpectedValue(playerTotal, dealerVisible);
+            return prob * hitExpected + (1 - prob) * standExpected;
+        }
+
+        function calculateHitExpectedValue(playerTotal, dealerVisible) {
+            let expectedValue = 0;
+            const possibleCards = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10];
+            
+            for (let card of possibleCards) {
+                const newTotal = playerTotal + card;
+                const probability = 1 / possibleCards.length;
+                
+                if (newTotal > 21) {
+                    expectedValue += probability * (-1); // Bust
+                } else {
+                    expectedValue += probability * calculateStandExpectedValue(newTotal, dealerVisible);
+                }
+            }
+            
+            return expectedValue;
+        }
+
+        function calculateStandExpectedValue(playerTotal, dealerVisible) {
+            const dealerBustProb = getDealerBustProbability(dealerVisible);
+            let expectedValue = dealerBustProb * 1; // Win if dealer busts
+            
+            // Approximate dealer final totals
+            const dealerTotals = {17: 0.13, 18: 0.13, 19: 0.13, 20: 0.13, 21: 0.12};
+            
+            for (let [total, prob] of Object.entries(dealerTotals)) {
+                if (playerTotal > parseInt(total)) {
+                    expectedValue += prob * 1; // Win
+                } else if (playerTotal < parseInt(total)) {
+                    expectedValue += prob * (-1); // Loss
+                }
+                // Draw = 0, no change
+            }
+            
+            return expectedValue;
+        }
+
+        // Algoritmo genético para optimización de estrategia
+        function geneticAlgorithmStrategy(playerTotal, dealerVisible) {
+            const populationSize = 50;
+            const generations = 20;
+            let population = [];
+            
+            // Initialize population
+            for (let i = 0; i < populationSize; i++) {
+                population.push({
+                    hitThreshold: Math.random(),
+                    dealerFactor: Math.random(),
+                    fitness: 0
+                });
+            }
+            
+            // Evolution
+            for (let gen = 0; gen < generations; gen++) {
+                // Evaluate fitness
+                for (let individual of population) {
+                    individual.fitness = evaluateStrategyFitness(individual, playerTotal, dealerVisible);
+                }
+                
+                // Selection and crossover
+                population.sort((a, b) => b.fitness - a.fitness);
+                const newPopulation = population.slice(0, populationSize / 2);
+                
+                while (newPopulation.length < populationSize) {
+                    const parent1 = population[Math.floor(Math.random() * populationSize / 2)];
+                    const parent2 = population[Math.floor(Math.random() * populationSize / 2)];
+                    
+                    const child = {
+                        hitThreshold: (parent1.hitThreshold + parent2.hitThreshold) / 2,
+                        dealerFactor: (parent1.dealerFactor + parent2.dealerFactor) / 2,
+                        fitness: 0
+                    };
+                    
+                    // Mutation
+                    if (Math.random() < 0.1) {
+                        child.hitThreshold += (Math.random() - 0.5) * 0.2;
+                        child.dealerFactor += (Math.random() - 0.5) * 0.2;
+                    }
+                    
+                    newPopulation.push(child);
+                }
+                
+                population = newPopulation;
+            }
+            
+            return population[0].hitThreshold;
+        }
+
+        function evaluateStrategyFitness(strategy, playerTotal, dealerVisible) {
+            const hitProb = strategy.hitThreshold * (1 + strategy.dealerFactor * getDealerBustProbability(dealerVisible));
+            const expectedValue = expectedValueFunction(hitProb, playerTotal, dealerVisible);
+            return expectedValue;
+        }
+
+        // Redes neuronales básicas para predicción
+        function neuralNetworkPrediction(playerTotal, dealerVisible) {
+            // Simplified neural network with hardcoded weights
+            const input = [playerTotal / 21, dealerVisible / 11];
+            
+            // Hidden layer
+            const hidden = [
+                Math.tanh(input[0] * 0.5 + input[1] * 0.3 - 0.2),
+                Math.tanh(input[0] * -0.4 + input[1] * 0.6 + 0.1),
+                Math.tanh(input[0] * 0.7 + input[1] * -0.2 + 0.3)
+            ];
+            
+            // Output layer
+            const output = Math.sigmoid(hidden[0] * 0.4 + hidden[1] * 0.3 + hidden[2] * 0.5 - 0.1);
+            
+            return output;
+        }
+
+        Math.sigmoid = function(x) {
+            return 1 / (1 + Math.exp(-x));
+        };
+
+        // Sistema experto para recomendaciones
+        function expertSystemRecommendation(playerTotal, dealerVisible) {
+            const rules = [
+                // Reglas básicas
+                {condition: () => playerTotal <= 8, action: 'hit', confidence: 1.0},
+                {condition: () => playerTotal >= 17, action: 'stand', confidence: 1.0},
+                {condition: () => playerTotal === 11, action: 'double', confidence: 0.9},
+                {condition: () => playerTotal === 10 && dealerVisible <= 9, action: 'double', confidence: 0.8},
+                {condition: () => playerTotal === 9 && dealerVisible >= 3 && dealerVisible <= 6, action: 'double', confidence: 0.7},
+                
+                // Reglas condicionales
+                {condition: () => playerTotal >= 12 && playerTotal <= 16 && dealerVisible >= 2 && dealerVisible <= 6, action: 'stand', confidence: 0.8},
+                {condition: () => playerTotal >= 12 && playerTotal <= 16 && dealerVisible >= 7, action: 'hit', confidence: 0.7},
+                
+                // Reglas avanzadas
+                {condition: () => playerTotal === 16 && dealerVisible === 10, action: 'hit', confidence: 0.6},
+                {condition: () => playerTotal === 12 && dealerVisible >= 4 && dealerVisible <= 6, action: 'stand', confidence: 0.75}
+            ];
+            
+            for (let rule of rules) {
+                if (rule.condition()) {
+                    return {action: rule.action, confidence: rule.confidence};
+                }
+            }
+            
+            return {action: 'hit', confidence: 0.5}; // Default
+        }
+
+        // Integración de todos los métodos para recomendación final
+        function advancedRecommendationSystem() {
+            const playerTotal = gameState.playerTotal;
+            const dealerVisible = gameState.dealerCards[0].getValue();
+            
+            // Ejecutar todos los métodos
+            const newton = newtonRaphsonOptimalProbability(playerTotal, dealerVisible);
+            const interpolation = newtonInterpolation(playerTotal, dealerVisible);
+            const integration = trapezoidalIntegration(playerTotal, dealerVisible);
+            const monteCarlo = monteCarloSimulation(playerTotal, dealerVisible, 1000);
+            const bisection = bisectionMethod(playerTotal, dealerVisible);
+            const genetic = geneticAlgorithmStrategy(playerTotal, dealerVisible);
+            const neural = neuralNetworkPrediction(playerTotal, dealerVisible);
+            const expert = expertSystemRecommendation(playerTotal, dealerVisible);
+            
+            // Pesos para cada método
+            const weights = {
+                newton: 0.2,
+                interpolation: 0.15,
+                integration: 0.15,
+                monteCarlo: 0.2,
+                bisection: 0.1,
+                genetic: 0.05,
+                neural: 0.1,
+                expert: 0.05
+            };
+            
+            // Calcular puntuación ponderada
+            const hitScore = 
+                newton * weights.newton +
+                interpolation * weights.interpolation +
+                integration * weights.integration +
+                monteCarlo * weights.monteCarlo +
+                bisection * weights.bisection +
+                genetic * weights.genetic +
+                neural * weights.neural +
+                (expert.action === 'hit' ? expert.confidence : 0) * weights.expert;
+            
+            const standScore = 1 - hitScore;
+            
+            let recommendation, confidence;
+            
+            if (expert.action === 'double' && gameState.playerCards.length === 2) {
+                recommendation = 'double';
+                confidence = expert.confidence;
+            } else if (hitScore > standScore) {
+                recommendation = 'hit';
+                confidence = hitScore;
+            } else {
+                recommendation = 'stand';
+                confidence = standScore;
+            }
+            
+            return {
+                recommendation,
+                confidence: Math.min(confidence, 1.0),
+                methods: {
+                    newton,
+                    interpolation,
+                    integration,
+                    monte_carlo: monteCarlo,
+                    bisection,
+                    genetic,
+                    neural,
+                    expert: expert.action === 'hit' ? expert.confidence : (1 - expert.confidence)
+                }
+            };
+        }
+
+        // Modificar la función getRecommendation para usar el sistema avanzado
+        function getRecommendation() {
+            const analysis = advancedRecommendationSystem();
+            
+            const recDiv = document.getElementById('recommendation');
+            const actionDiv = document.getElementById('recommendedAction');
+            const confidenceDiv = document.getElementById('confidence');
+
+            actionDiv.innerHTML = `<strong>${analysis.recommendation.toUpperCase()}</strong>`;
+            confidenceDiv.innerHTML = `Confianza: ${(analysis.confidence * 100).toFixed(1)}%`;
+
+            recDiv.className = 'recommendation ' + analysis.recommendation;
+
+            // Actualizar análisis numérico con más métodos
+            document.getElementById('newtonResult').textContent = analysis.methods.newton.toFixed(4);
+            document.getElementById('interpolationResult').textContent = analysis.methods.interpolation.toFixed(4);
+            document.getElementById('integrationResult').textContent = analysis.methods.integration.toFixed(4);
+            document.getElementById('monteCarloResult').textContent = analysis.methods.monte_carlo.toFixed(4);
+
+            updateProbabilityChart(analysis.methods);
+        }
+
+        // Inicialización mejorada
+        document.addEventListener('DOMContentLoaded', function() {
+            updateGameStatus('Haz clic en "Nuevo Juego" para comenzar', '');
+            
+            // Mostrar información de controles
+            console.log('Controles de teclado:');
+            console.log('H - Hit');
+            console.log('S - Stand');
+            console.log('D - Doblar');
+            console.log('A - Analizar');
+            console.log('N - Nueva Mano');
+            
+            // Inicializar gráfico vacío
+            updateProbabilityChart({
+                newton_raphson: 0,
+                interpolation: 0,
+                integration: 0,
+                monte_carlo: 0
             });
         });
+
+        // Override de la función newHand para incluir auto-análisis
+        const originalNewHand = newHand;
+        newHand = function() {
+            originalNewHand();
+            if (gameState.handInProgress) {
+                autoAnalyze();
+            }
+        };
     </script>
 </body>
 </html>
